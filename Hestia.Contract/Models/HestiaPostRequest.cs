@@ -1,7 +1,4 @@
-﻿using Gaia.Models;
-using Gaia.Services;
-
-namespace Hestia.Contract.Models;
+﻿namespace Hestia.Contract.Models;
 
 public class HestiaPostRequest
 {
@@ -13,9 +10,4 @@ public class HestiaPostRequest
     public UpdateOrderIndexToDoItemOptions[] UpdateOrderIndex { get; set; } = [];
     public ToDoShortItem[] Creates { get; set; } = [];
     public CloneToDoItem[] Clones { get; set; } = [];
-}
-
-public class HestiaPostResponse : IValidationErrors
-{
-    public List<ValidationError> ValidationErrors { get; } = [];
 }

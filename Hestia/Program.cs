@@ -1,17 +1,7 @@
-var builder = WebApplication.CreateBuilder(args);
+using Hestia.Contract.Models;
+using Hestia.Contract.Services;
+using Zeus.Helpers;
 
-// Add services to the container.
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
-builder.Services.AddOpenApi();
-
-var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();
-}
-
-app.UseHttpsRedirection();
-
-app.Run();
+await WebApplication.CreateBuilder(args)
+   .RunZeusApp<IToDoService, EfToDoService, HestiaGetRequest,
+        HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>("Hestia");
