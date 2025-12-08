@@ -1,6 +1,6 @@
 ﻿namespace Hestia.Contract.Models;
 
-public class GetToDo
+public class HestiaGetRequest
 {
     public bool IsSelectorItems { get; set; }
     public GetToStringItem[] ToStringItems { get; set; } = [];
