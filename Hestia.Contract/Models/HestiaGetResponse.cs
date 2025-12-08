@@ -1,9 +1,10 @@
 ﻿using Gaia.Models;
 using Gaia.Services;
+using Nestor.Db.Models;
 
 namespace Hestia.Contract.Models;
 
-public class HestiaGetResponse : IValidationErrors
+public class HestiaGetResponse : IValidationErrors, IResponse
 {
     public ToDoSelectorItemsResponse SelectorItems { get; set; } = new();
     public ToStringItem[] ToStringItems { get; set; } = [];
@@ -19,4 +20,5 @@ public class HestiaGetResponse : IValidationErrors
     public ToDoFullItemsResponse RootItems { get; set; } = new();
     public ToDoFullItemsResponse Items { get; set; } = new();
     public List<ValidationError> ValidationErrors { get; set; } = [];
+    public EventEntity[] Events { get; set; } = [];
 }

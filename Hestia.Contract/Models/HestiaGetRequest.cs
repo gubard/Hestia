@@ -1,6 +1,8 @@
-﻿namespace Hestia.Contract.Models;
+﻿using Gaia.Services;
 
-public class HestiaGetRequest
+namespace Hestia.Contract.Models;
+
+public class HestiaGetRequest : IGetRequest
 {
     public bool IsSelectorItems { get; set; }
     public GetToStringItem[] ToStringItems { get; set; } = [];
@@ -15,4 +17,5 @@ public class HestiaGetRequest
     public bool IsTodayItems { get; set; }
     public bool IsRootItems { get; set; }
     public Guid[] Items { get; set; } = [];
+    public long LastId { get; set; }
 }

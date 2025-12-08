@@ -1,6 +1,8 @@
-﻿namespace Hestia.Contract.Models;
+﻿using Gaia.Services;
 
-public class HestiaPostRequest
+namespace Hestia.Contract.Models;
+
+public class HestiaPostRequest : IPostRequest
 {
     public Guid[] DeletedIds { get; set; } = [];
     public Guid[] RandomizeChildrenOrderIndexIds { get; set; } = [];
@@ -10,4 +12,5 @@ public class HestiaPostRequest
     public UpdateOrderIndexToDoItemOptions[] UpdateOrderIndex { get; set; } = [];
     public ToDoShortItem[] Creates { get; set; } = [];
     public CloneToDoItem[] Clones { get; set; } = [];
+    public long LastLocalId { get; set; }
 }
