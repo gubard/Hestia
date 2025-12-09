@@ -255,6 +255,11 @@ public sealed class EfToDoService :
         throw new NotImplementedException();
     }
 
+    public override HestiaPostResponse Post(HestiaPostRequest request)
+    {
+        throw new NotImplementedException();
+    }
+
     private List<ToDoSelector> GetToDoSelectorItems(ToDoEntity[] items,
         Guid id)
     {
