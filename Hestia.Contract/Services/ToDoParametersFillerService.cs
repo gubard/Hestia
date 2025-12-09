@@ -9,7 +9,7 @@ public class ToDoParametersFillerService
 {
     public ToDoItemParameters GetToDoItemParameters(
         FrozenDictionary<Guid, ToDoEntity> allItems,
-        Dictionary<Guid, FullToDoItem> fullToDoItems, ToDoEntity entity,
+        Dictionary<Guid, FullToDo> fullToDoItems, ToDoEntity entity,
         TimeSpan offset)
     {
         var parameters = GetToDoItemParameters(
@@ -39,7 +39,7 @@ public class ToDoParametersFillerService
 
     private ToDoItemParameters GetToDoItemParameters(
         FrozenDictionary<Guid, ToDoEntity> allItems,
-        Dictionary<Guid, FullToDoItem> fullToDoItems,
+        Dictionary<Guid, FullToDo> fullToDoItems,
         ToDoEntity entity,
         TimeSpan offset,
         ToDoItemParameters parameters
@@ -75,7 +75,7 @@ public class ToDoParametersFillerService
 
     private ToDoItemParameters GetToDoItemParameters(
         FrozenDictionary<Guid, ToDoEntity> allItems,
-        Dictionary<Guid, FullToDoItem> fullToDoItems,
+        Dictionary<Guid, FullToDo> fullToDoItems,
         ToDoEntity entity,
         DateOnly dueDate,
         TimeSpan offset,
@@ -172,8 +172,8 @@ public class ToDoParametersFillerService
         var items = allItems.Values
            .Where(x => x.ParentId == entity.Id && !ignoreIds.Contains(x.Id))
            .OrderBy(x => x.OrderIndex).ToArray();
-        ToDoShortItem? firstReadyForComplete = null;
-        ToDoShortItem? firstMiss = null;
+        ShortToDo? firstReadyForComplete = null;
+        ShortToDo? firstMiss = null;
         var hasPlanned = false;
 
         foreach (var item in items)
@@ -434,7 +434,7 @@ public class ToDoParametersFillerService
         };
     }
 
-    private ToDoShortItem? ToActiveToDoItem(ToDoEntity entity)
+    private ShortToDo? ToActiveToDoItem(ToDoEntity entity)
     {
         return entity.ParentId is null
             ? null

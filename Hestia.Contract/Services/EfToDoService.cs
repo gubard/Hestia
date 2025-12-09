@@ -43,26 +43,22 @@ public sealed class EfToDoService :
             await ToDoEntity.GetToDoEntitysAsync(DbContext.Set<EventEntity>(),
                 ct);
         var dictionary = items.ToDictionary(x => x.Id).ToFrozenDictionary();
-        var fullDictionary = new Dictionary<Guid, FullToDoItem>();
+        var fullDictionary = new Dictionary<Guid, FullToDo>();
         var roots = dictionary.Values.Where(x => x.ParentId is null).ToArray();
 
 
-        if (request.IsSelectorItems)
+        if (request.IsSelectors)
         {
-            response.SelectorItems = new()
+            response.Selectors = roots.Select(x => new ToDoSelector
             {
-                IsResponse = true,
-                Items = roots.Select(x => new ToDoSelectorItem
-                {
-                    Item = x.ToToDoShortItem(),
-                    Children = GetToDoSelectorItems(items, x.Id).ToArray(),
-                }).ToArray(),
-            };
+                Item = x.ToToDoShortItem(),
+                Children = GetToDoSelectorItems(items, x.Id).ToArray(),
+            }).ToArray();
         }
 
-        if (request.ToStringItems.Length != 0)
+        if (request.ToStringIds.Length != 0)
         {
-            foreach (var item in request.ToStringItems)
+            foreach (var item in request.ToStringIds)
             {
                 foreach (var id in item.Ids)
                 {
@@ -81,17 +77,14 @@ public sealed class EfToDoService :
                         _gaiaValues.Offset
                     );
 
-                    response.ToStringItems.Add(new()
-                    {
-                        Id = id,
-                        Text = builder.ToString().Trim(),
-                    });
+                    response.ToStrings.Add(id, builder.ToString().Trim());
                 }
             }
         }
 
-        if (request.IsCurrentActiveItem)
+        if (request.IsCurrentActive)
         {
+            response.CurrentActive.IsResponse = true;
             var rootsFullItems = roots
                .Select(i =>
                     GetFullItem(dictionary, fullDictionary, i,
@@ -102,7 +95,7 @@ public sealed class EfToDoService :
             {
                 if (rootsFullItem.Status == ToDoItemStatus.Miss)
                 {
-                    response.CurrentActive = rootsFullItem.Active;
+                    response.CurrentActive.Item = rootsFullItem.Active;
 
                     break;
                 }
@@ -110,16 +103,11 @@ public sealed class EfToDoService :
                 switch (rootsFullItem.Status)
                 {
                     case ToDoItemStatus.ReadyForComplete:
-                        if (response.CurrentActive is null)
-                        {
-                            response.CurrentActive = rootsFullItem.Active;
-                        }
+                        response.CurrentActive.Item ??= rootsFullItem.Active;
 
                         break;
                     case ToDoItemStatus.Planned:
-                        break;
                     case ToDoItemStatus.Completed:
-                        break;
                     case ToDoItemStatus.ComingSoon:
                         break;
                     default:
@@ -128,177 +116,127 @@ public sealed class EfToDoService :
             }
         }
 
-        if (request.ActiveItems.Length != 0)
+        if (request.IsFavorites)
         {
-            response.ActiveItems = request.ActiveItems
-               .Select(
-                    x => GetFullItem(dictionary, fullDictionary, dictionary[x],
-                        _gaiaValues.Offset)
-                )
+            response.Favorites = dictionary.Where(x => x.Value.IsFavorite)
+               .ToArray()
                .Select(x =>
-                    new ActiveItem
-                    {
-                        Id = x.Item.Id,
-                        Item = x.Active,
-                    }).ToArray();
+                    GetFullItem(dictionary, fullDictionary, x.Value,
+                        _gaiaValues.Offset)).ToArray();
         }
 
-        if (request.IsFavoriteItems)
+        if (request.IsBookmarks)
         {
-            response.FavoriteItems = new()
+            response.Bookmarks = dictionary.Where(x => x.Value.IsBookmark)
+               .Select(x => x.Value.ToToDoShortItem())
+               .ToArray();
+        }
+
+        if (request.ChildrenIds.Length != 0)
+        {
+            foreach (var id in request.ChildrenIds)
             {
-                IsResponse = true,
-                Items = dictionary.Where(x => x.Value.IsFavorite)
+                response.Children.Add(id, dictionary.Values
+                   .Where(x => x.ParentId == id)
                    .ToArray()
-                   .Select(x =>
-                        GetFullItem(dictionary, fullDictionary, x.Value,
-                            _gaiaValues.Offset)).ToArray(),
-            };
+                   .Select(
+                        item => GetFullItem(dictionary, fullDictionary,
+                            item, _gaiaValues.Offset)
+                    ).ToArray());
+            }
         }
 
-        if (request.IsBookmarkItems)
+        if (request.LeafIds.Length != 0)
         {
-            response.BookmarkItems = new()
+            foreach (var id in request.LeafIds)
             {
-                IsResponse = true,
-                Items = dictionary.Where(x => x.Value.IsBookmark)
-                   .Select(x => x.Value.ToToDoShortItem())
-                   .ToArray(),
-            };
-        }
-
-        if (request.ChildrenItems.Length != 0)
-        {
-            response.ChildrenItems = request.ChildrenItems
-               .Select(
-                    id => new ChildrenItem
-                    {
-                        Id = id,
-                        Children = dictionary.Values
-                           .Where(x => x.ParentId == id)
-                           .ToArray()
-                           .Select(
-                                item => GetFullItem(dictionary, fullDictionary,
-                                    item, _gaiaValues.Offset)
-                            ).ToArray(),
-                    }
-                ).ToArray();
-        }
-
-        if (request.LeafItems.Length != 0)
-        {
-            response.LeafItems = request.LeafItems
-               .Select(
-                    id => new LeafItem
-                    {
-                        Id = id,
-                        Leafs = GetLeafToDoItems(
-                                dictionary,
-                                fullDictionary,
-                                dictionary[id],
-                                new(),
-                                _gaiaValues.Offset
-                            )
-                           .ToArray(),
-                    }
-                ).ToArray();
+                response.Leafs.Add(id, GetLeafToDoItems(
+                        dictionary,
+                        fullDictionary,
+                        dictionary[id],
+                        new(),
+                        _gaiaValues.Offset
+                    )
+                   .ToArray());
+            }
         }
 
         var isEmptySearchText = request.Search.SearchText.IsNullOrWhiteSpace();
 
         if (!isEmptySearchText || request.Search.Types.Length != 0)
         {
-            response.SearchItems = new()
-            {
-                IsResponse = true,
-                Items = dictionary.Values
-                   .Where(
-                        x => isEmptySearchText
-                         || x.Name.Contains(
-                                request.Search.SearchText,
-                                StringComparison.InvariantCultureIgnoreCase
-                            )
-                    )
-                   .Where(
-                        x => request.Search.Types.Length == 0
-                         || request.Search.Types.Contains(x.Type)
-                    )
-                   .ToArray()
-                   .Select(x =>
-                        GetFullItem(dictionary, fullDictionary, x,
-                            _gaiaValues.Offset)).ToArray(),
-            };
+            response.Search = dictionary.Values
+               .Where(
+                    x => isEmptySearchText
+                     || x.Name.Contains(
+                            request.Search.SearchText,
+                            StringComparison.InvariantCultureIgnoreCase
+                        )
+                )
+               .Where(
+                    x => request.Search.Types.Length == 0
+                     || request.Search.Types.Contains(x.Type)
+                )
+               .ToArray()
+               .Select(x =>
+                    GetFullItem(dictionary, fullDictionary, x,
+                        _gaiaValues.Offset)).ToArray();
         }
 
-        if (request.ParentItems.Length != 0)
+        if (request.ParentIds.Length != 0)
         {
-            response.ParentItems = request.ParentItems
-               .Select(
-                    x => new ParentItem
-                    {
-                        Id = x,
-                        Parents = GetParents(dictionary, x).Reverse().ToArray(),
-                    }
-                ).ToArray();
+            foreach (var id in request.ParentIds)
+            {
+                response.Parents.Add(id,
+                    GetParents(dictionary, id).Reverse().ToArray());
+            }
         }
 
-        if (request.IsTodayItems)
+        if (request.IsToday)
         {
             var today = DateTimeOffset.UtcNow.Add(_gaiaValues.Offset).Date
                .ToDateOnly();
 
-            response.TodayItems = new()
-            {
-                IsResponse = true,
-                Items = dictionary.Values
-                   .Where(
-                        x => x is
-                            {
-                                Type: ToDoItemType.Periodicity
-                                or ToDoItemType.PeriodicityOffset,
-                            }
-                         && (x.DueDate <= today
-                             || x.RemindDaysBefore != 0
-                             && today
-                             >= x.DueDate.AddDays((int)-x.RemindDaysBefore))
-                         || x is
-                            {
-                                Type: ToDoItemType.Planned, IsCompleted: false,
-                            }
-                         && (x.DueDate <= today
-                             || x.RemindDaysBefore != 0
-                             && today
-                             >= x.DueDate.AddDays((int)-x.RemindDaysBefore))
-                    )
-                   .ToArray()
-                   .Select(x =>
-                        GetFullItem(dictionary, fullDictionary, x,
-                            _gaiaValues.Offset)).ToArray(),
-            };
+            response.Today = dictionary.Values
+               .Where(
+                    x => x is
+                        {
+                            Type: ToDoItemType.Periodicity
+                            or ToDoItemType.PeriodicityOffset,
+                        }
+                     && (x.DueDate <= today
+                         || x.RemindDaysBefore != 0
+                         && today
+                         >= x.DueDate.AddDays((int)-x.RemindDaysBefore))
+                     || x is
+                        {
+                            Type: ToDoItemType.Planned, IsCompleted: false,
+                        }
+                     && (x.DueDate <= today
+                         || x.RemindDaysBefore != 0
+                         && today
+                         >= x.DueDate.AddDays((int)-x.RemindDaysBefore))
+                )
+               .ToArray()
+               .Select(x =>
+                    GetFullItem(dictionary, fullDictionary, x,
+                        _gaiaValues.Offset)).ToArray();
         }
 
-        if (request.IsRootItems)
+        if (request.IsRoots)
         {
-            response.RootItems = new()
-            {
-                IsResponse = true,
-                Items = roots.Select(x =>
-                    GetFullItem(dictionary, fullDictionary, x,
-                        _gaiaValues.Offset)).ToArray(),
-            };
+            response.Roots = roots.Select(x =>
+                GetFullItem(dictionary, fullDictionary, x,
+                    _gaiaValues.Offset)).ToArray();
         }
 
         if (request.Items.Length != 0)
         {
-            response.Items = new()
-            {
-                IsResponse = true,
-                Items = request.Items
-                   .Select(
-                        x => GetFullItem(dictionary, fullDictionary,
-                            dictionary[x], _gaiaValues.Offset)
-                    ).ToArray(),
-            };
+            response.Items = request.Items
+               .Select(
+                    x => GetFullItem(dictionary, fullDictionary,
+                        dictionary[x], _gaiaValues.Offset)
+                ).ToArray();
         }
 
         if (request.LastId != -1)
@@ -317,13 +255,13 @@ public sealed class EfToDoService :
         throw new NotImplementedException();
     }
 
-    private List<ToDoSelectorItem> GetToDoSelectorItems(ToDoEntity[] items,
+    private List<ToDoSelector> GetToDoSelectorItems(ToDoEntity[] items,
         Guid id)
     {
         var children = items.Where(x => x.ParentId == id)
            .OrderBy(x => x.OrderIndex).ToArray();
 
-        var result = new List<ToDoSelectorItem>();
+        var result = new List<ToDoSelector>();
 
         for (var i = 0; i < children.Length; i++)
         {
@@ -335,7 +273,7 @@ public sealed class EfToDoService :
 
     private void ToDoItemToString(
         FrozenDictionary<Guid, ToDoEntity> allItems,
-        Dictionary<Guid, FullToDoItem> fullToDoItems,
+        Dictionary<Guid, FullToDo> fullToDoItems,
         ToDoItemToStringOptions options,
         ushort level,
         StringBuilder builder,
@@ -376,9 +314,9 @@ public sealed class EfToDoService :
         }
     }
 
-    private FullToDoItem GetFullItem(
+    private FullToDo GetFullItem(
         FrozenDictionary<Guid, ToDoEntity> allItems,
-        Dictionary<Guid, FullToDoItem> fullToDoItems,
+        Dictionary<Guid, FullToDo> fullToDoItems,
         ToDoEntity entity,
         TimeSpan offset
     )
@@ -394,9 +332,9 @@ public sealed class EfToDoService :
         return entity.ToFullToDoItem(parameters);
     }
 
-    private IEnumerable<FullToDoItem> GetLeafToDoItems(
+    private IEnumerable<FullToDo> GetLeafToDoItems(
         FrozenDictionary<Guid, ToDoEntity> allItems,
-        Dictionary<Guid, FullToDoItem> fullToDoItems,
+        Dictionary<Guid, FullToDo> fullToDoItems,
         ToDoEntity entity,
         List<Guid> ignoreIds,
         TimeSpan offset
@@ -460,7 +398,7 @@ public sealed class EfToDoService :
         }
     }
 
-    private IEnumerable<ToDoShortItem> GetParents(
+    private IEnumerable<ShortToDo> GetParents(
         FrozenDictionary<Guid, ToDoEntity> allItems, Guid id)
     {
         var parent = allItems[id];

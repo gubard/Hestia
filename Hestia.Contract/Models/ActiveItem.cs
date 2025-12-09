@@ -3,5 +3,5 @@
 public class ActiveItem
 {
     public Guid Id { get; set; }
-    public ToDoShortItem? Item { get; set; }
+    public ShortToDo? Item { get; set; }
 }

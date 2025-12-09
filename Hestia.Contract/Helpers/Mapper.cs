@@ -4,7 +4,7 @@ namespace Hestia.Contract.Helpers;
 
 public static class Mapper
 {
-    public static FullToDoItem ToFullToDoItem(this ToDoEntity entity,
+    public static FullToDo ToFullToDoItem(this ToDoEntity entity,
         ToDoItemParameters parameters)
     {
         return new()
@@ -16,7 +16,7 @@ public static class Mapper
         };
     }
 
-    public static ToDoShortItem ToToDoShortItem(this ToDoEntity entity)
+    public static ShortToDo ToToDoShortItem(this ToDoEntity entity)
     {
         return new()
         {

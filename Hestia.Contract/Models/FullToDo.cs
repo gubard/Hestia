@@ -1,9 +1,9 @@
 namespace Hestia.Contract.Models;
 
-public class FullToDoItem
+public class FullToDo
 {
-    public ToDoShortItem Item { get; set; } = new();
+    public ShortToDo Item { get; set; } = new();
     public ToDoItemStatus Status { get; set; }
-    public ToDoShortItem? Active { get; set; }
+    public ShortToDo? Active { get; set; }
     public ToDoItemIsCan IsCan { get; set; }
 }

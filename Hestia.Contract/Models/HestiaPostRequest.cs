@@ -10,7 +10,7 @@ public class HestiaPostRequest : IPostRequest
     public EditToDoItems[] Edits { get; set; } = [];
     public Guid[] SwitchCompleteIds { get; set; } = [];
     public UpdateOrderIndexToDoItemOptions[] UpdateOrderIndex { get; set; } = [];
-    public ToDoShortItem[] Creates { get; set; } = [];
+    public ShortToDo[] Creates { get; set; } = [];
     public CloneToDoItem[] Clones { get; set; } = [];
     public long LastLocalId { get; set; }
 }
