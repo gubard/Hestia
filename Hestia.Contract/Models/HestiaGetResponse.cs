@@ -7,7 +7,7 @@ namespace Hestia.Contract.Models;
 public class HestiaGetResponse : IValidationErrors, IResponse
 {
     public ToDoSelectorItemsResponse SelectorItems { get; set; } = new();
-    public ToStringItem[] ToStringItems { get; set; } = [];
+    public List<ToStringItem> ToStringItems { get; set; } = [];
     public ToDoShortItem? CurrentActive { get; set; }
     public ActiveItem[] ActiveItems { get; set; } = [];
     public ToDoFullItemsResponse FavoriteItems { get; set; } = new();

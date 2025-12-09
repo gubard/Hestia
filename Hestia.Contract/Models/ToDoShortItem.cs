@@ -11,15 +11,15 @@ public class ToDoShortItem
     public bool IsFavorite { get; set; }
     public DateOnly DueDate { get; set; }
     public TypeOfPeriodicity TypeOfPeriodicity { get; set; }
-    public DayOfYear[] AnnuallyDays { get; set; } = [];
-    public byte[] MonthlyDays { get; set; } = [];
-    public DayOfWeek[] WeeklyDays { get; set; } = [];
+    public string AnnuallyDays { get; set; } = string.Empty;
+    public string MonthlyDays { get; set; } = string.Empty;
+    public string WeeklyDays { get; set; } = string.Empty;
     public ushort DaysOffset { get; set; }
     public ushort MonthsOffset { get; set; }
     public ushort WeeksOffset { get; set; }
     public ushort YearsOffset { get; set; }
     public ToDoItemChildrenType ChildrenType { get; set; }
-    public Uri? Link { get; set; }
+    public string? Link { get; set; }
     public bool IsRequiredCompleteInDueDate { get; set; }
     public DescriptionType DescriptionType { get; set; }
     public string Icon { get; set; } = string.Empty;

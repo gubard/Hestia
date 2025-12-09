@@ -8,6 +8,8 @@ namespace Hestia.Contract.Models;
 [JsonSerializable(typeof(HestiaPostRequest))]
 [JsonSerializable(typeof(HestiaGetResponse))]
 [JsonSerializable(typeof(HestiaPostResponse))]
+[JsonSerializable(typeof(AlreadyExistsValidationError))]
+[JsonSerializable(typeof(NotFoundValidationError))]
 public partial class HestiaJsonContext : JsonSerializerContext
 {
     public static readonly IJsonTypeInfoResolver Resolver;
