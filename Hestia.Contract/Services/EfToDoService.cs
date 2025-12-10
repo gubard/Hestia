@@ -38,10 +38,52 @@ public sealed class EfToDoService :
     public override async ValueTask<HestiaGetResponse> GetAsync(
         HestiaGetRequest request, CancellationToken ct)
     {
-        var response = new HestiaGetResponse();
         var items =
             await ToDoEntity.GetToDoEntitysAsync(DbContext.Set<EventEntity>(),
                 ct);
+        var response = CreateResponse(request, items);
+
+        if (request.LastId != -1)
+        {
+            response.Events = await DbContext.Set<EventEntity>()
+               .Where(x => x.Id > request.LastId)
+               .ToArrayAsync(ct);
+        }
+
+        return response;
+    }
+
+    public override ValueTask<HestiaPostResponse> PostAsync(
+        HestiaPostRequest request, CancellationToken ct)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override HestiaPostResponse Post(HestiaPostRequest request)
+    {
+        throw new NotImplementedException();
+    }
+
+    public override HestiaGetResponse Get(HestiaGetRequest request)
+    {
+        var items =
+            ToDoEntity.GetToDoEntitys(DbContext.Set<EventEntity>());
+        var response = CreateResponse(request, items);
+
+        if (request.LastId != -1)
+        {
+            response.Events = DbContext.Set<EventEntity>()
+               .Where(x => x.Id > request.LastId)
+               .ToArray();
+        }
+
+        return response;
+    }
+
+    private HestiaGetResponse CreateResponse(HestiaGetRequest request,
+        ToDoEntity[] items)
+    {
+        var response = new HestiaGetResponse();
         var dictionary = items.ToDictionary(x => x.Id).ToFrozenDictionary();
         var fullDictionary = new Dictionary<Guid, FullToDo>();
         var roots = dictionary.Values.Where(x => x.ParentId is null).ToArray();
@@ -239,25 +281,7 @@ public sealed class EfToDoService :
                 ).ToArray();
         }
 
-        if (request.LastId != -1)
-        {
-            response.Events = await DbContext.Set<EventEntity>()
-               .Where(x => x.Id > request.LastId)
-               .ToArrayAsync(ct);
-        }
-
         return response;
-    }
-
-    public override ValueTask<HestiaPostResponse> PostAsync(
-        HestiaPostRequest request, CancellationToken ct)
-    {
-        throw new NotImplementedException();
-    }
-
-    public override HestiaPostResponse Post(HestiaPostRequest request)
-    {
-        throw new NotImplementedException();
     }
 
     private List<ToDoSelector> GetToDoSelectorItems(ToDoEntity[] items,
