@@ -84,7 +84,7 @@ public class ToDoParametersFillerService
         List<Guid> ignoreIds
     )
     {
-        if (entity.Type == ToDoItemType.Reference)
+        if (entity.Type == ToDoType.Reference)
         {
             if (entity.ReferenceId.HasValue
              && entity.ReferenceId.Value != entity.Id)
@@ -289,9 +289,9 @@ public class ToDoParametersFillerService
 
         if (isMiss)
         {
-            switch (entity.ChildrenType)
+            switch (entity.ChildrenCompletionType)
             {
-                case ToDoChildrenType.RequireCompletion:
+                case ChildrenCompletionType.RequireCompletion:
                     if (firstActive is not null)
                     {
                         parameters.ActiveItem = firstActive;
@@ -310,7 +310,7 @@ public class ToDoParametersFillerService
                         entity.ToFullToDoItem(parameters);
 
                     return parameters;
-                case ToDoChildrenType.IgnoreCompletion:
+                case ChildrenCompletionType.IgnoreCompletion:
                     parameters.ActiveItem =
                         firstActive ?? ToActiveToDoItem(entity);
                     parameters.Status = ToDoItemStatus.Miss;
@@ -320,27 +320,27 @@ public class ToDoParametersFillerService
 
                     return parameters;
                 default:
-                    throw new ArgumentOutOfRangeException(entity.ChildrenType
+                    throw new ArgumentOutOfRangeException(entity.ChildrenCompletionType
                        .ToString());
             }
         }
 
         if (firstMiss is not null)
         {
-            switch (entity.ChildrenType)
+            switch (entity.ChildrenCompletionType)
             {
-                case ToDoChildrenType.RequireCompletion:
+                case ChildrenCompletionType.RequireCompletion:
                     parameters.ActiveItem = firstMiss;
                     parameters.Status = ToDoItemStatus.Miss;
                     parameters.IsCan = ToDoItemIsCan.None;
                     break;
-                case ToDoChildrenType.IgnoreCompletion:
+                case ChildrenCompletionType.IgnoreCompletion:
                     parameters.ActiveItem = firstMiss;
                     parameters.Status = ToDoItemStatus.Miss;
                     parameters.IsCan = ToDoItemIsCan.CanComplete;
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(entity.ChildrenType
+                    throw new ArgumentOutOfRangeException(entity.ChildrenCompletionType
                        .ToString());
             }
 
@@ -351,21 +351,21 @@ public class ToDoParametersFillerService
 
         if (firstReadyForComplete is not null)
         {
-            switch (entity.ChildrenType)
+            switch (entity.ChildrenCompletionType)
             {
-                case ToDoChildrenType.RequireCompletion:
+                case ChildrenCompletionType.RequireCompletion:
                     parameters.ActiveItem = firstReadyForComplete;
                     parameters.Status = ToDoItemStatus.ReadyForComplete;
                     parameters.IsCan = ToDoItemIsCan.None;
 
                     break;
-                case ToDoChildrenType.IgnoreCompletion:
+                case ChildrenCompletionType.IgnoreCompletion:
                     parameters.ActiveItem = firstReadyForComplete;
                     parameters.Status = ToDoItemStatus.ReadyForComplete;
                     parameters.IsCan = ToDoItemIsCan.CanComplete;
                     break;
                 default:
-                    throw new ArgumentOutOfRangeException(entity.ChildrenType
+                    throw new ArgumentOutOfRangeException(entity.ChildrenCompletionType
                        .ToString());
             }
 
@@ -387,14 +387,14 @@ public class ToDoParametersFillerService
     {
         return entity.Type switch
         {
-            ToDoItemType.Value => false,
-            ToDoItemType.Group => false,
-            ToDoItemType.Planned => true,
-            ToDoItemType.Periodicity => true,
-            ToDoItemType.PeriodicityOffset => true,
-            ToDoItemType.Circle => false,
-            ToDoItemType.Step => false,
-            ToDoItemType.Reference => entity.ReferenceId.HasValue
+            ToDoType.Value => false,
+            ToDoType.Group => false,
+            ToDoType.Planned => true,
+            ToDoType.Periodicity => true,
+            ToDoType.PeriodicityOffset => true,
+            ToDoType.Circle => false,
+            ToDoType.Step => false,
+            ToDoType.Reference => entity.ReferenceId.HasValue
              && entity.ReferenceId != entity.Id
                     ? IsDueable(allItems, allItems[entity.ReferenceId.Value])
                     : false,
@@ -406,14 +406,14 @@ public class ToDoParametersFillerService
     {
         return entity.Type switch
         {
-            ToDoItemType.Value => true,
-            ToDoItemType.Group => false,
-            ToDoItemType.Planned => true,
-            ToDoItemType.Periodicity => false,
-            ToDoItemType.PeriodicityOffset => false,
-            ToDoItemType.Circle => true,
-            ToDoItemType.Step => true,
-            ToDoItemType.Reference => false,
+            ToDoType.Value => true,
+            ToDoType.Group => false,
+            ToDoType.Planned => true,
+            ToDoType.Periodicity => false,
+            ToDoType.PeriodicityOffset => false,
+            ToDoType.Circle => true,
+            ToDoType.Step => true,
+            ToDoType.Reference => false,
             _ => throw new ArgumentOutOfRangeException(entity.Type.ToString()),
         };
     }
@@ -422,14 +422,14 @@ public class ToDoParametersFillerService
     {
         return entity.Type switch
         {
-            ToDoItemType.Value => false,
-            ToDoItemType.Group => true,
-            ToDoItemType.Planned => false,
-            ToDoItemType.Periodicity => false,
-            ToDoItemType.PeriodicityOffset => false,
-            ToDoItemType.Circle => false,
-            ToDoItemType.Step => false,
-            ToDoItemType.Reference => false,
+            ToDoType.Value => false,
+            ToDoType.Group => true,
+            ToDoType.Planned => false,
+            ToDoType.Periodicity => false,
+            ToDoType.PeriodicityOffset => false,
+            ToDoType.Circle => false,
+            ToDoType.Step => false,
+            ToDoType.Reference => false,
             _ => throw new ArgumentOutOfRangeException(entity.Type.ToString()),
         };
     }

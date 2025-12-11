@@ -1,6 +1,6 @@
 namespace Hestia.Contract.Models;
 
-public enum ToDoItemType
+public enum ToDoType
 {
     Value,
     Group,

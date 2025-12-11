@@ -243,8 +243,8 @@ public sealed class EfToDoService :
                .Where(
                     x => x is
                         {
-                            Type: ToDoItemType.Periodicity
-                            or ToDoItemType.PeriodicityOffset,
+                            Type: ToDoType.Periodicity
+                            or ToDoType.PeriodicityOffset,
                         }
                      && (x.DueDate <= today
                          || x.RemindDaysBefore != 0
@@ -252,7 +252,7 @@ public sealed class EfToDoService :
                          >= x.DueDate.AddDays((int)-x.RemindDaysBefore))
                      || x is
                         {
-                            Type: ToDoItemType.Planned, IsCompleted: false,
+                            Type: ToDoType.Planned, IsCompleted: false,
                         }
                      && (x.DueDate <= today
                          || x.RemindDaysBefore != 0
@@ -374,7 +374,7 @@ public sealed class EfToDoService :
             yield break;
         }
 
-        if (entity.Type == ToDoItemType.Reference)
+        if (entity.Type == ToDoType.Reference)
         {
             ignoreIds.Add(entity.Id);
 

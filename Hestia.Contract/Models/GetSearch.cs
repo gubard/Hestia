@@ -3,5 +3,5 @@
 public class GetSearch
 {
     public string SearchText { get; set; } = string.Empty;
-    public ToDoItemType[] Types { get; set; } = [];
+    public ToDoType[] Types { get; set; } = [];
 }

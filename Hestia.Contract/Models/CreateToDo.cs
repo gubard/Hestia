@@ -5,7 +5,7 @@ public class CreateToDo
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public ToDoItemType Type { get; set; }
+    public ToDoType Type { get; set; }
     public bool IsBookmark { get; set; }
     public bool IsFavorite { get; set; }
     public DateOnly DueDate { get; set; }
@@ -17,7 +17,7 @@ public class CreateToDo
     public ushort MonthsOffset { get; set; }
     public ushort WeeksOffset { get; set; }
     public ushort YearsOffset { get; set; }
-    public ToDoChildrenType ChildrenType { get; set; }
+    public ChildrenCompletionType ChildrenCompletionType { get; set; }
     public string Link { get; set; } = string.Empty;
     public bool IsRequiredCompleteInDueDate { get; set; }
     public DescriptionType DescriptionType { get; set; }

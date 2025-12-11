@@ -12,7 +12,7 @@ public partial class ToDoEntity
     public uint OrderIndex { get; set; }
     public string Description { get; set; } = string.Empty;
     public DateTimeOffset CreatedDateTime { get; set; } = DateTimeOffset.Now;
-    public ToDoItemType Type { get; set; }
+    public ToDoType Type { get; set; }
     public bool IsBookmark { get; set; }
     public bool IsFavorite { get; set; }
     public DateOnly DueDate { get; set; } = DateTime.Now.ToDateOnly();
@@ -26,7 +26,7 @@ public partial class ToDoEntity
     public ushort MonthsOffset { get; set; }
     public ushort WeeksOffset { get; set; }
     public ushort YearsOffset { get; set; }
-    public ToDoChildrenType ChildrenType { get; set; }
+    public ChildrenCompletionType ChildrenCompletionType { get; set; }
     public uint CurrentCircleOrderIndex { get; set; }
     public string Link { get; set; } = string.Empty;
     public bool IsRequiredCompleteInDueDate { get; set; } = true;

@@ -36,7 +36,7 @@ public static class Mapper
             MonthsOffset = entity.MonthsOffset,
             WeeksOffset = entity.WeeksOffset,
             YearsOffset = entity.YearsOffset,
-            ChildrenType = entity.ChildrenType,
+            ChildrenCompletionType = entity.ChildrenCompletionType,
             Link = entity.Link,
             IsRequiredCompleteInDueDate = entity.IsRequiredCompleteInDueDate,
             DescriptionType = entity.DescriptionType,
@@ -50,7 +50,7 @@ public static class Mapper
 
     private static Guid? GetReferenceId(ToDoEntity item)
     {
-        if (item.Type != ToDoItemType.Reference)
+        if (item.Type != ToDoType.Reference)
         {
             return null;
         }

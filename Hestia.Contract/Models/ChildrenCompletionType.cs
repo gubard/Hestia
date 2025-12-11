@@ -1,6 +1,6 @@
 namespace Hestia.Contract.Models;
 
-public enum ToDoChildrenType : byte
+public enum ChildrenCompletionType : byte
 {
     RequireCompletion,
     IgnoreCompletion,
