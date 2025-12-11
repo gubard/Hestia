@@ -291,7 +291,7 @@ public class ToDoParametersFillerService
         {
             switch (entity.ChildrenType)
             {
-                case ToDoItemChildrenType.RequireCompletion:
+                case ToDoChildrenType.RequireCompletion:
                     if (firstActive is not null)
                     {
                         parameters.ActiveItem = firstActive;
@@ -310,7 +310,7 @@ public class ToDoParametersFillerService
                         entity.ToFullToDoItem(parameters);
 
                     return parameters;
-                case ToDoItemChildrenType.IgnoreCompletion:
+                case ToDoChildrenType.IgnoreCompletion:
                     parameters.ActiveItem =
                         firstActive ?? ToActiveToDoItem(entity);
                     parameters.Status = ToDoItemStatus.Miss;
@@ -329,12 +329,12 @@ public class ToDoParametersFillerService
         {
             switch (entity.ChildrenType)
             {
-                case ToDoItemChildrenType.RequireCompletion:
+                case ToDoChildrenType.RequireCompletion:
                     parameters.ActiveItem = firstMiss;
                     parameters.Status = ToDoItemStatus.Miss;
                     parameters.IsCan = ToDoItemIsCan.None;
                     break;
-                case ToDoItemChildrenType.IgnoreCompletion:
+                case ToDoChildrenType.IgnoreCompletion:
                     parameters.ActiveItem = firstMiss;
                     parameters.Status = ToDoItemStatus.Miss;
                     parameters.IsCan = ToDoItemIsCan.CanComplete;
@@ -353,13 +353,13 @@ public class ToDoParametersFillerService
         {
             switch (entity.ChildrenType)
             {
-                case ToDoItemChildrenType.RequireCompletion:
+                case ToDoChildrenType.RequireCompletion:
                     parameters.ActiveItem = firstReadyForComplete;
                     parameters.Status = ToDoItemStatus.ReadyForComplete;
                     parameters.IsCan = ToDoItemIsCan.None;
 
                     break;
-                case ToDoItemChildrenType.IgnoreCompletion:
+                case ToDoChildrenType.IgnoreCompletion:
                     parameters.ActiveItem = firstReadyForComplete;
                     parameters.Status = ToDoItemStatus.ReadyForComplete;
                     parameters.IsCan = ToDoItemIsCan.CanComplete;

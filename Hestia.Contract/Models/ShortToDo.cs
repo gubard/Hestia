@@ -18,7 +18,7 @@ public class ShortToDo
     public ushort MonthsOffset { get; set; }
     public ushort WeeksOffset { get; set; }
     public ushort YearsOffset { get; set; }
-    public ToDoItemChildrenType ChildrenType { get; set; }
+    public ToDoChildrenType ChildrenType { get; set; }
     public string Link { get; set; } = string.Empty;
     public bool IsRequiredCompleteInDueDate { get; set; }
     public DescriptionType DescriptionType { get; set; }

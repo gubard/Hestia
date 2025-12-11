@@ -13,7 +13,7 @@ public class EditToDoItems
     public EditPropertyValue<Guid?> ReferenceId { get; set; } = new();
     public EditPropertyValue<DayOfYear[]> AnnuallyDays { get; set; } = new();
     public EditPropertyValue<byte[]> MonthlyDays { get; set; } = new();
-    public EditPropertyValue<ToDoItemChildrenType> ChildrenType { get; set; } = new();
+    public EditPropertyValue<ToDoChildrenType> ChildrenType { get; set; } = new();
     public EditPropertyValue<DateOnly> DueDate { get; set; } = new();
     public EditPropertyValue<ushort> DaysOffset { get; set; } = new();
     public EditPropertyValue<ushort> MonthsOffset { get; set; } = new();

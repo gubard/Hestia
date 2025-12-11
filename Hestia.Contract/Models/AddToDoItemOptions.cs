@@ -16,7 +16,7 @@ public class AddToDoItemOptions
     public ushort MonthsOffset { get; set; }
     public ushort WeeksOffset { get; set; }
     public ushort YearsOffset { get; set; }
-    public ToDoItemChildrenType ChildrenType { get; set; }
+    public ToDoChildrenType ChildrenType { get; set; }
     public Uri? Link { get; set; }
     public bool IsRequiredCompleteInDueDate { get; set; }
     public DescriptionType DescriptionType { get; set; }
