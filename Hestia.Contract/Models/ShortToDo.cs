@@ -1,6 +1,9 @@
-﻿namespace Hestia.Contract.Models;
+﻿using Gaia.Models;
+using Hestia.Contract.Services;
 
-public class ShortToDo
+namespace Hestia.Contract.Models;
+
+public class ShortToDo : IToDo
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
@@ -11,9 +14,9 @@ public class ShortToDo
     public bool IsFavorite { get; set; }
     public DateOnly DueDate { get; set; }
     public TypeOfPeriodicity TypeOfPeriodicity { get; set; }
-    public string AnnuallyDays { get; set; } = string.Empty;
-    public string MonthlyDays { get; set; } = string.Empty;
-    public string WeeklyDays { get; set; } = string.Empty;
+    public IEnumerable<DayOfYear> AnnuallyDays { get; set; } = [];
+    public IEnumerable<int> MonthlyDays { get; set; } = [];
+    public IEnumerable<DayOfWeek> WeeklyDays { get; set; } = [];
     public ushort DaysOffset { get; set; }
     public ushort MonthsOffset { get; set; }
     public ushort WeeksOffset { get; set; }

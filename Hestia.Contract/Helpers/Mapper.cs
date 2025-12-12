@@ -1,4 +1,5 @@
-﻿using Hestia.Contract.Models;
+﻿using Gaia.Models;
+using Hestia.Contract.Models;
 
 namespace Hestia.Contract.Helpers;
 
@@ -10,7 +11,7 @@ public static class Mapper
         return new()
         {
             IsCan = parameters.IsCan,
-            Item = entity.ToToDoShortItem(),
+            Parameters = entity.ToToDoShortItem(),
             Status = parameters.Status,
             Active = parameters.ActiveItem,
         };
@@ -29,9 +30,10 @@ public static class Mapper
             IsFavorite = entity.IsFavorite,
             DueDate = entity.DueDate,
             TypeOfPeriodicity = entity.TypeOfPeriodicity,
-            AnnuallyDays = entity.AnnuallyDays,
-            MonthlyDays = entity.MonthlyDays,
-            WeeklyDays = entity.WeeklyDays,
+            AnnuallyDays = entity.AnnuallyDays.Split(";").Select(x => x.Split('.'))
+               .Select(x => new DayOfYear(byte.Parse(x[1]), Enum.Parse<Month>(x[0]))).ToArray(),
+            MonthlyDays = entity.MonthlyDays.Split(";").Select(int.Parse).ToArray(),
+            WeeklyDays = entity.WeeklyDays.Split(";").Select(Enum.Parse<DayOfWeek>).ToArray(),
             DaysOffset = entity.DaysOffset,
             MonthsOffset = entity.MonthsOffset,
             WeeksOffset = entity.WeeksOffset,

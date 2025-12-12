@@ -131,7 +131,7 @@ public sealed class EfToDoService :
                .Select(i =>
                     GetFullItem(dictionary, fullDictionary, i,
                         _gaiaValues.Offset))
-               .OrderBy(x => x.Item.OrderIndex).ToArray();
+               .OrderBy(x => x.Parameters.OrderIndex).ToArray();
 
             foreach (var rootsFullItem in rootsFullItems)
             {
