@@ -143,7 +143,7 @@ public sealed class ToDoValidator : IToDoValidator
                 {
                     case nameof(value.DueDate): return ValidateDueDate(value.DueDate);
                     case nameof(value.Link): return ValidateLink(value.Link);
-                    case "Offset":
+                    case nameof(value.DaysOffset):
                     {
                         if (value is { DaysOffset: 0, WeeksOffset: 0, MonthsOffset: 0, YearsOffset: 0, })
                         {
@@ -179,7 +179,7 @@ public sealed class ToDoValidator : IToDoValidator
                     nameof(value.Link) => ValidateLink(value.Link),
                     _ =>
                     [
-                    ]
+                    ],
                 };
 
             default: throw new ArgumentOutOfRangeException(nameof(identity), identity, null);
