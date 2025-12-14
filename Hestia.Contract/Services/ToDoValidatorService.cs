@@ -177,9 +177,7 @@ public sealed class ToDoValidator : IToDoValidator
                 return identity switch
                 {
                     nameof(value.Link) => ValidateLink(value.Link),
-                    _ =>
-                    [
-                    ],
+                    _ => [],
                 };
 
             default: throw new ArgumentOutOfRangeException(nameof(identity), identity, null);

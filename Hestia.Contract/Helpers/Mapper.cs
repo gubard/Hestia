@@ -1,23 +1,102 @@
-﻿using Gaia.Models;
+﻿using Gaia.Helpers;
+using Gaia.Models;
 using Hestia.Contract.Models;
 
 namespace Hestia.Contract.Helpers;
 
 public static class Mapper
 {
-    public static FullToDo ToFullToDoItem(this ToDoEntity entity,
+    public static IEnumerable<EditToDoEntity> ToEditToDoEntities(this EditToDos edit)
+    {
+         foreach (var id in edit.Ids)
+         {
+             yield return new(id)
+             {
+                 IsEditName = edit.IsEditName,
+                Name = edit.Name,
+
+                IsEditDescription = edit.IsEditDescription,
+                Description = edit.Description,
+
+                IsEditType = edit.IsEditType,
+                Type = edit.Type,
+
+                IsEditDueDate = edit.IsEditDueDate,
+                DueDate = edit.DueDate,
+
+                IsEditTypeOfPeriodicity = edit.IsEditTypeOfPeriodicity,
+                TypeOfPeriodicity = edit.TypeOfPeriodicity,
+
+                IsEditAnnuallyDays = edit.IsEditAnnuallyDays,
+                AnnuallyDays = edit.AnnuallyDays.Select(x => $"{x.Month}.{x.Day}").JoinString(";"),
+
+                IsEditMonthlyDays = edit.IsEditMonthlyDays,
+                MonthlyDays = edit.MonthlyDays.Select(x => $"{x}").JoinString(";"),
+
+                IsEditWeeklyDays = edit.IsEditWeeklyDays,
+                WeeklyDays = edit.WeeklyDays.Select(x => $"{x}").JoinString(";"),
+
+                IsEditDaysOffset = edit.IsEditDaysOffset,
+                DaysOffset = edit.DaysOffset,
+
+                IsEditMonthsOffset = edit.IsEditMonthsOffset,
+                MonthsOffset = edit.MonthsOffset,
+
+                IsEditWeeksOffset = edit.IsEditWeeksOffset,
+                WeeksOffset = edit.WeeksOffset,
+
+                IsEditYearsOffset = edit.IsEditYearsOffset,
+                YearsOffset = edit.YearsOffset,
+
+                IsEditChildrenCompletionType = edit.IsEditChildrenCompletionType,
+                ChildrenCompletionType = edit.ChildrenCompletionType,
+
+                IsEditLink = edit.IsEditLink,
+                Link = edit.Link,
+
+                IsEditIsRequiredCompleteInDueDate = edit.IsEditIsRequiredCompleteInDueDate,
+                IsRequiredCompleteInDueDate = edit.IsRequiredCompleteInDueDate,
+
+                IsEditDescriptionType = edit.IsEditDescriptionType,
+                DescriptionType = edit.DescriptionType,
+
+                IsEditIcon = edit.IsEditIcon,
+                Icon = edit.Icon,
+
+                IsEditColor = edit.IsEditColor,
+                Color = edit.Color,
+
+                IsEditRemindDaysBefore = edit.IsEditRemindDaysBefore,
+                RemindDaysBefore = edit.RemindDaysBefore,
+
+                IsEditIsBookmark = edit.IsEditIsBookmark,
+                IsBookmark = edit.IsBookmark,
+
+                IsEditIsFavorite = edit.IsEditIsFavorite,
+                IsFavorite = edit.IsFavorite,
+
+                IsEditParentId = edit.IsEditParentId,
+                ParentId = edit.ParentId,
+
+                IsEditReferenceId = edit.IsEditReferenceId,
+                ReferenceId = edit.ReferenceId,
+             };
+         }
+    }
+    
+    public static FullToDo ToFullToDo(this ToDoEntity entity,
         ToDoItemParameters parameters)
     {
         return new()
         {
             IsCan = parameters.IsCan,
-            Parameters = entity.ToToDoShortItem(),
+            Parameters = entity.ToToDoShort(),
             Status = parameters.Status,
             Active = parameters.ActiveItem,
         };
     }
 
-    public static ShortToDo ToToDoShortItem(this ToDoEntity entity)
+    public static ShortToDo ToToDoShort(this ToDoEntity entity)
     {
         return new()
         {
@@ -45,6 +124,39 @@ public static class Mapper
             Icon = entity.Icon,
             Color = entity.Color,
             ReferenceId = GetReferenceId(entity),
+            ParentId = entity.ParentId,
+            RemindDaysBefore = entity.RemindDaysBefore,
+        };
+    }
+
+
+    public static ToDoEntity ToToDoEntity(this ShortToDo entity)
+    {
+        return new()
+        {
+            Id = entity.Id,
+            Name = entity.Name,
+            OrderIndex = entity.OrderIndex,
+            Description = entity.Description,
+            Type = entity.Type,
+            IsBookmark = entity.IsBookmark,
+            IsFavorite = entity.IsFavorite,
+            DueDate = entity.DueDate,
+            TypeOfPeriodicity = entity.TypeOfPeriodicity,
+            AnnuallyDays = entity.AnnuallyDays.Select(x => $"{x.Month}.{x.Day}").JoinString(";"),
+            MonthlyDays = entity.MonthlyDays.Select(x => $"{x}").JoinString(";"),
+            WeeklyDays = entity.WeeklyDays.Select(x => $"{x}").JoinString(";"),
+            DaysOffset = entity.DaysOffset,
+            MonthsOffset = entity.MonthsOffset,
+            WeeksOffset = entity.WeeksOffset,
+            YearsOffset = entity.YearsOffset,
+            ChildrenCompletionType = entity.ChildrenCompletionType,
+            Link = entity.Link,
+            IsRequiredCompleteInDueDate = entity.IsRequiredCompleteInDueDate,
+            DescriptionType = entity.DescriptionType,
+            Icon = entity.Icon,
+            Color = entity.Color,
+            ReferenceId = entity.ReferenceId,
             ParentId = entity.ParentId,
             RemindDaysBefore = entity.RemindDaysBefore,
         };

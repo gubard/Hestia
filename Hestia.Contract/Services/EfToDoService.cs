@@ -6,6 +6,7 @@ using Gaia.Services;
 using Hestia.Contract.Helpers;
 using Hestia.Contract.Models;
 using Microsoft.EntityFrameworkCore;
+using Nestor.Db.Helpers;
 using Nestor.Db.Models;
 using Nestor.Db.Services;
 
@@ -26,20 +27,21 @@ public sealed class EfToDoService :
 {
     private readonly GaiaValues _gaiaValues;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
+    private readonly IToDoValidator _toDoValidator;
 
     public EfToDoService(DbContext dbContext, GaiaValues gaiaValues,
-        ToDoParametersFillerService toDoParametersFillerService) : base(
-        dbContext)
+        ToDoParametersFillerService toDoParametersFillerService, IToDoValidator toDoValidator) : base(dbContext)
     {
         _gaiaValues = gaiaValues;
         _toDoParametersFillerService = toDoParametersFillerService;
+        _toDoValidator = toDoValidator;
     }
 
     public override async ValueTask<HestiaGetResponse> GetAsync(
         HestiaGetRequest request, CancellationToken ct)
     {
         var items =
-            await ToDoEntity.GetToDoEntitysAsync(DbContext.Set<EventEntity>(),
+            await ToDoEntity.GetEntitiesAsync(DbContext.Set<EventEntity>(),
                 ct);
         var response = CreateResponse(request, items);
 
@@ -53,21 +55,41 @@ public sealed class EfToDoService :
         return response;
     }
 
-    public override ValueTask<HestiaPostResponse> PostAsync(
-        HestiaPostRequest request, CancellationToken ct)
+    public override async ValueTask<HestiaPostResponse> PostAsync(HestiaPostRequest request, CancellationToken ct)
     {
-        throw new NotImplementedException();
+        var response = new HestiaPostResponse();
+        var editEntities = new List<EditToDoEntity>();
+        await CreateAsync(response, request.Creates, ct);
+        Edit(request.Edits, editEntities);
+        ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
+        await ToDoEntity.EditEntitiesAsync(DbContext, _gaiaValues.UserId.ToString(),
+            editEntities.ToArray(), ct);
+        await DeleteAsync(request.DeleteIds, ct);
+        await DbContext.SaveChangesAsync(ct);
+        response.Events = await DbContext.Set<EventEntity>().Where(x => x.Id > request.LastLocalId).ToArrayAsync(ct);
+
+        return response;
     }
 
     public override HestiaPostResponse Post(HestiaPostRequest request)
     {
-        throw new NotImplementedException();
+        var response = new HestiaPostResponse();
+        var editEntities = new List<EditToDoEntity>();
+        Create(response, request.Creates);
+        Edit(request.Edits, editEntities);
+        ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
+        ToDoEntity.EditEntities(DbContext, _gaiaValues.UserId.ToString(),
+            editEntities.ToArray());
+        Delete(request.DeleteIds);
+        DbContext.SaveChanges();
+        response.Events = DbContext.Set<EventEntity>().Where(x => x.Id > request.LastLocalId).ToArray();
+
+        return response;
     }
 
     public override HestiaGetResponse Get(HestiaGetRequest request)
     {
-        var items =
-            ToDoEntity.GetToDoEntitys(DbContext.Set<EventEntity>());
+        var items = ToDoEntity.GetEntities(DbContext.Set<EventEntity>());
         var response = CreateResponse(request, items);
 
         if (request.LastId != -1)
@@ -78,6 +100,177 @@ public sealed class EfToDoService :
         }
 
         return response;
+    }
+
+    private ValueTask DeleteAsync(Guid[] ids, CancellationToken ct)
+    {
+        if (ids.Length == 0)
+        {
+            return ValueTask.CompletedTask;
+        }
+
+        return ToDoEntity.DeleteEntitiesAsync(DbContext, _gaiaValues.UserId.ToString(), ct, ids);
+    }
+
+    private void Delete(Guid[] ids)
+    {
+        if (ids.Length == 0)
+        {
+            return;
+        }
+
+        ToDoEntity.DeleteEntities(DbContext, _gaiaValues.UserId.ToString(), ids);
+    }
+
+    private void ChangeOrder(ToDoChangeOrder[] changeOrders,
+        List<ValidationError> errors, List<EditToDoEntity> editEntities)
+    {
+        if (changeOrders.Length == 0)
+        {
+            return;
+        }
+
+        var insertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct()
+           .ToFrozenSet();
+        var insertItems = ToDoEntity.GetEntities(
+            DbContext.Set<EventEntity>()
+               .Where(x => insertIds.Contains(x.EntityId)));
+        var insertItemsDictionary =
+            insertItems.ToDictionary(x => x.Id).ToFrozenDictionary();
+        var startIds = changeOrders.Select(x => x.StartId).Distinct()
+           .ToFrozenSet();
+        var startItems = ToDoEntity.GetEntities(
+            DbContext.Set<EventEntity>()
+               .Where(x => startIds.Contains(x.EntityId)));
+        var startItemsDictionary =
+            startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
+        var parentItems = startItems.Select(x => x.ParentId).Distinct()
+           .ToFrozenSet();
+        var query = DbContext.Set<EventEntity>()
+           .GetProperty(nameof(ToDoEntity),
+                nameof(ToDoEntity.ParentId))
+           .Where(x => parentItems.Contains(x.EntityGuidValue))
+           .Select(x => x.EntityId).Distinct();
+        var siblings = ToDoEntity.GetEntities(
+            DbContext.Set<EventEntity>()
+               .Where(x => query.Contains(x.EntityId)));
+
+        for (var index = 0; index < changeOrders.Length; index++)
+        {
+            var changeOrder = changeOrders[index];
+
+            var inserts = changeOrder.InsertIds
+               .Select(x => insertItemsDictionary[x]).ToFrozenSet();
+
+            if (!startItemsDictionary.TryGetValue(changeOrder.StartId,
+                out var item))
+            {
+                errors.Add(
+                    new NotFoundValidationError(changeOrder.StartId
+                       .ToString()));
+
+                continue;
+            }
+
+            var startIndex = changeOrder.IsAfter
+                ? item.OrderIndex + 1
+                : item.OrderIndex;
+            var items = siblings.Where(x => x.ParentId == item.ParentId)
+               .OrderBy(x => x.OrderIndex);
+
+            var usedItems = changeOrder.IsAfter
+                ? items.Where(x => x.OrderIndex > item.OrderIndex)
+                : items.Where(x => x.OrderIndex >= item.OrderIndex);
+
+            var newOrder = inserts
+               .Concat(usedItems.Where(x => !insertIds.Contains(x.Id)))
+               .ToFrozenSet();
+
+            foreach (var newItem in newOrder)
+            {
+                editEntities.Add(new(newItem.Id)
+                {
+                    IsEditOrderIndex = startIndex != newItem.OrderIndex,
+                    OrderIndex = startIndex++,
+                    IsEditParentId = newItem.ParentId != item.ParentId,
+                    ParentId = item.ParentId,
+                });
+            }
+        }
+    }
+
+    private void Edit(EditToDos[] edits, List<EditToDoEntity> editEntities)
+    {
+        foreach (var edit in edits)
+        {
+            editEntities.AddRange(edit.ToEditToDoEntities());
+        }
+    }
+
+    private void Create(HestiaPostResponse response, ShortToDo[] creates)
+    {
+        if (creates.Length == 0)
+        {
+            return;
+        }
+
+        var adds = new List<ToDoEntity>();
+
+        foreach (var create in creates)
+        {
+            var errorCount = response.ValidationErrors.Count;
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create.Name, nameof(create.Name)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create.Description, nameof(create.Description)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.DueDate)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.Link)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.AnnuallyDays)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.MonthlyDays)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.WeeklyDays)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.DaysOffset)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, "Reference"));
+
+            if (errorCount != response.ValidationErrors.Count)
+            {
+                continue;
+            }
+
+            adds.Add(create.ToToDoEntity());
+        }
+
+        ToDoEntity.AddEntities(DbContext, _gaiaValues.UserId.ToString(), adds.ToArray());
+    }
+
+    private async ValueTask CreateAsync(HestiaPostResponse response, ShortToDo[] creates, CancellationToken ct)
+    {
+        if (creates.Length == 0)
+        {
+            return;
+        }
+
+        var adds = new List<ToDoEntity>();
+
+        foreach (var create in creates)
+        {
+            var errorCount = response.ValidationErrors.Count;
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create.Name, nameof(create.Name)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create.Description, nameof(create.Description)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.DueDate)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.Link)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.AnnuallyDays)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.MonthlyDays)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.WeeklyDays)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, nameof(create.DaysOffset)));
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, "Reference"));
+
+            if (errorCount != response.ValidationErrors.Count)
+            {
+                continue;
+            }
+
+            adds.Add(create.ToToDoEntity());
+        }
+
+        await ToDoEntity.AddEntitiesAsync(DbContext, _gaiaValues.UserId.ToString(), ct, adds.ToArray());
     }
 
     private HestiaGetResponse CreateResponse(HestiaGetRequest request,
@@ -93,7 +286,7 @@ public sealed class EfToDoService :
         {
             response.Selectors = roots.Select(x => new ToDoSelector
             {
-                Item = x.ToToDoShortItem(),
+                Item = x.ToToDoShort(),
                 Children = GetToDoSelectorItems(items, x.Id).ToArray(),
             }).ToArray();
         }
@@ -170,7 +363,7 @@ public sealed class EfToDoService :
         if (request.IsBookmarks)
         {
             response.Bookmarks = dictionary.Where(x => x.Value.IsBookmark)
-               .Select(x => x.Value.ToToDoShortItem())
+               .Select(x => x.Value.ToToDoShort())
                .ToArray();
         }
 
@@ -319,7 +512,7 @@ public sealed class EfToDoService :
             var parameters = GetFullItem(allItems, fullToDoItems, item, offset);
 
             if (!options.Statuses.Select(x => x)
-                   .Contains(parameters.Status))
+               .Contains(parameters.Status))
             {
                 continue;
             }
@@ -358,7 +551,7 @@ public sealed class EfToDoService :
         var parameters = _toDoParametersFillerService
            .GetToDoItemParameters(allItems, fullToDoItems, entity, offset);
 
-        return entity.ToFullToDoItem(parameters);
+        return entity.ToFullToDo(parameters);
     }
 
     private IEnumerable<FullToDo> GetLeafToDoItems(
@@ -389,12 +582,12 @@ public sealed class EfToDoService :
             var reference = allItems[entity.ReferenceId.Value];
 
             foreach (var item in GetLeafToDoItems(
-                         allItems,
-                         fullToDoItems,
-                         reference,
-                         ignoreIds,
-                         offset
-                     ))
+                    allItems,
+                    fullToDoItems,
+                    reference,
+                    ignoreIds,
+                    offset
+                ))
             {
                 yield return item;
             }
@@ -415,12 +608,12 @@ public sealed class EfToDoService :
         foreach (var e in entities)
         {
             foreach (var item in GetLeafToDoItems(
-                         allItems,
-                         fullToDoItems,
-                         e,
-                         ignoreIds,
-                         offset
-                     ))
+                    allItems,
+                    fullToDoItems,
+                    e,
+                    ignoreIds,
+                    offset
+                ))
             {
                 yield return item;
             }
@@ -432,7 +625,7 @@ public sealed class EfToDoService :
     {
         var parent = allItems[id];
 
-        yield return parent.ToToDoShortItem();
+        yield return parent.ToToDoShort();
 
         if (parent.ParentId is null)
         {

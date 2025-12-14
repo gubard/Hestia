@@ -7,6 +7,7 @@ var builder = WebApplication.CreateBuilder(args).AddServicesZeus
     HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>("Hestia");
 
 builder.Services.AddTransient<ToDoParametersFillerService>();
+builder.Services.AddTransient<IToDoValidator, ToDoValidator>();
 var app = builder.Build();
 await app
    .RunZeusApp<IToDoService, HestiaGetRequest, HestiaPostRequest,
