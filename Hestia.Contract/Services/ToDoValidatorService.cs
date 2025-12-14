@@ -86,7 +86,7 @@ public sealed class ToDoValidator : IToDoValidator
     {
         switch (value.Type)
         {
-            case ToDoType.Planned:
+            case ToDoType.FixedDate:
                 switch (identity)
                 {
                     case nameof(value.DueDate): return ValidateDueDate(value.DueDate);

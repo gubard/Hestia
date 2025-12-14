@@ -1,6 +1,6 @@
 namespace Hestia.Contract.Models;
 
-public enum ToDoItemStatus : byte
+public enum ToDoStatus : byte
 {
     /// <summary>
     ///     Overdue due date or sub to-do item overdue due date.

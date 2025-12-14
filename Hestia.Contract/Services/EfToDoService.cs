@@ -328,7 +328,7 @@ public sealed class EfToDoService :
 
             foreach (var rootsFullItem in rootsFullItems)
             {
-                if (rootsFullItem.Status == ToDoItemStatus.Miss)
+                if (rootsFullItem.Status == ToDoStatus.Miss)
                 {
                     response.CurrentActive.Item = rootsFullItem.Active;
 
@@ -337,13 +337,13 @@ public sealed class EfToDoService :
 
                 switch (rootsFullItem.Status)
                 {
-                    case ToDoItemStatus.ReadyForComplete:
+                    case ToDoStatus.ReadyForComplete:
                         response.CurrentActive.Item ??= rootsFullItem.Active;
 
                         break;
-                    case ToDoItemStatus.Planned:
-                    case ToDoItemStatus.Completed:
-                    case ToDoItemStatus.ComingSoon:
+                    case ToDoStatus.Planned:
+                    case ToDoStatus.Completed:
+                    case ToDoStatus.ComingSoon:
                         break;
                     default:
                         throw new ArgumentOutOfRangeException();
@@ -445,7 +445,7 @@ public sealed class EfToDoService :
                          >= x.DueDate.AddDays((int)-x.RemindDaysBefore))
                      || x is
                         {
-                            Type: ToDoType.Planned, IsCompleted: false,
+                            Type: ToDoType.FixedDate, IsCompleted: false,
                         }
                      && (x.DueDate <= today
                          || x.RemindDaysBefore != 0

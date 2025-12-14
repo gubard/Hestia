@@ -4,7 +4,7 @@ public enum ToDoType
 {
     Value,
     Group,
-    Planned,
+    FixedDate,
     Periodicity,
     PeriodicityOffset,
     Circle,

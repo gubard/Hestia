@@ -3,5 +3,5 @@
 public class GetToStringItem
 {
     public Guid[] Ids { get; set; } = [];
-    public ToDoItemStatus[] Statuses { get; set; } = [];
+    public ToDoStatus[] Statuses { get; set; } = [];
 }
