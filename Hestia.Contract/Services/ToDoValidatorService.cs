@@ -247,7 +247,7 @@ public sealed class ToDoValidator : IToDoValidator
     {
         var now = DateTime.Now;
 
-        if (dueDate.ToDateTime(TimeOnly.MinValue) < now)
+        if (dueDate.ToDateTime(TimeOnly.MinValue) <= now)
         {
             return
             [

@@ -111,7 +111,11 @@ public static class Mapper
             AnnuallyDays = entity
                 .AnnuallyDays.Split(";")
                 .Select(x => x.Split('.'))
-                .Select(x => new DayOfYear(byte.Parse(x[1]), Enum.Parse<Month>(x[0])))
+                .Select(x => new DayOfYear
+                {
+                    Day = byte.Parse(x[1]),
+                    Month = Enum.Parse<Month>(x[0]),
+                })
                 .ToArray(),
             MonthlyDays = entity.MonthlyDays.Split(";").Select(int.Parse).ToArray(),
             WeeklyDays = entity.WeeklyDays.Split(";").Select(Enum.Parse<DayOfWeek>).ToArray(),

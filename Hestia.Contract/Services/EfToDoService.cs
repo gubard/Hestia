@@ -48,7 +48,7 @@ public sealed class EfToDoService
     )
     {
         var items = await ToDoEntity.GetEntitiesAsync(DbContext.Set<EventEntity>(), ct);
-        var response = CreateResponse(request, items);
+        var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
         {
@@ -108,7 +108,7 @@ public sealed class EfToDoService
     public override HestiaGetResponse Get(HestiaGetRequest request)
     {
         var items = ToDoEntity.GetEntities(DbContext.Set<EventEntity>());
-        var response = CreateResponse(request, items);
+        var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
         {
@@ -327,7 +327,7 @@ public sealed class EfToDoService
         );
     }
 
-    private HestiaGetResponse CreateResponse(HestiaGetRequest request, ToDoEntity[] items)
+    private HestiaGetResponse CreateGetResponse(HestiaGetRequest request, ToDoEntity[] items)
     {
         var response = new HestiaGetResponse();
         var dictionary = items.ToDictionary(x => x.Id).ToFrozenDictionary();
