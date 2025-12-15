@@ -108,17 +108,9 @@ public static class Mapper
             IsFavorite = entity.IsFavorite,
             DueDate = entity.DueDate,
             TypeOfPeriodicity = entity.TypeOfPeriodicity,
-            AnnuallyDays = entity
-                .AnnuallyDays.Split(";")
-                .Select(x => x.Split('.'))
-                .Select(x => new DayOfYear
-                {
-                    Day = byte.Parse(x[1]),
-                    Month = Enum.Parse<Month>(x[0]),
-                })
-                .ToArray(),
-            MonthlyDays = entity.MonthlyDays.Split(";").Select(int.Parse).ToArray(),
-            WeeklyDays = entity.WeeklyDays.Split(";").Select(Enum.Parse<DayOfWeek>).ToArray(),
+            AnnuallyDays = entity.GetDaysOfYear(),
+            MonthlyDays = entity.GetDaysOfMonth(),
+            WeeklyDays = entity.GetDaysOfWeek(),
             DaysOffset = entity.DaysOffset,
             MonthsOffset = entity.MonthsOffset,
             WeeksOffset = entity.WeeksOffset,
@@ -133,6 +125,25 @@ public static class Mapper
             ParentId = entity.ParentId,
             RemindDaysBefore = entity.RemindDaysBefore,
         };
+    }
+
+    public static DayOfYear[] GetDaysOfYear(this ToDoEntity entity)
+    {
+        return entity
+            .AnnuallyDays.Split(";")
+            .Select(x => x.Split('.'))
+            .Select(x => new DayOfYear { Day = byte.Parse(x[1]), Month = Enum.Parse<Month>(x[0]) })
+            .ToArray();
+    }
+
+    public static int[] GetDaysOfMonth(this ToDoEntity entity)
+    {
+        return entity.MonthlyDays.Split(";").Select(int.Parse).ToArray();
+    }
+
+    public static DayOfWeek[] GetDaysOfWeek(this ToDoEntity entity)
+    {
+        return entity.WeeklyDays.Split(";").Select(Enum.Parse<DayOfWeek>).ToArray();
     }
 
     public static ToDoEntity ToToDoEntity(this ShortToDo entity)

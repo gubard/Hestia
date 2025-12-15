@@ -53,9 +53,9 @@ public sealed class EfToDoService
         if (request.LastId != -1)
         {
             response.Events = await DbContext
-                .Set<EventEntity>()
-                .Where(x => x.Id > request.LastId)
-                .ToArrayAsync(ct);
+               .Set<EventEntity>()
+               .Where(x => x.Id > request.LastId)
+               .ToArrayAsync(ct);
         }
 
         return response;
@@ -67,22 +67,32 @@ public sealed class EfToDoService
     )
     {
         var response = new HestiaPostResponse();
+        Dictionary<Guid, FullToDo> fullDictionary = new();
         var editEntities = new List<EditToDoEntity>();
         await CreateAsync(response, request.Creates, ct);
         Edit(request.Edits, editEntities);
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
+
+        var allItems = (await ToDoEntity.GetEntitiesAsync(DbContext.Set<EventEntity>(), ct))
+           .ToDictionary(x => x.Id)
+           .ToFrozenDictionary();
+
+        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities, response);
+
         await ToDoEntity.EditEntitiesAsync(
             DbContext,
             _gaiaValues.UserId.ToString(),
             editEntities.ToArray(),
             ct
         );
+
         await DeleteAsync(request.DeleteIds, ct);
         await DbContext.SaveChangesAsync(ct);
+
         response.Events = await DbContext
-            .Set<EventEntity>()
-            .Where(x => x.Id > request.LastLocalId)
-            .ToArrayAsync(ct);
+           .Set<EventEntity>()
+           .Where(x => x.Id > request.LastLocalId)
+           .ToArrayAsync(ct);
 
         return response;
     }
@@ -91,16 +101,25 @@ public sealed class EfToDoService
     {
         var response = new HestiaPostResponse();
         var editEntities = new List<EditToDoEntity>();
+        Dictionary<Guid, FullToDo> fullDictionary = new();
         Create(response, request.Creates);
         Edit(request.Edits, editEntities);
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
+
+        var allItems = ToDoEntity
+           .GetEntities(DbContext.Set<EventEntity>())
+           .ToDictionary(x => x.Id)
+           .ToFrozenDictionary();
+
+        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities, response);
         ToDoEntity.EditEntities(DbContext, _gaiaValues.UserId.ToString(), editEntities.ToArray());
         Delete(request.DeleteIds);
         DbContext.SaveChanges();
+
         response.Events = DbContext
-            .Set<EventEntity>()
-            .Where(x => x.Id > request.LastLocalId)
-            .ToArray();
+           .Set<EventEntity>()
+           .Where(x => x.Id > request.LastLocalId)
+           .ToArray();
 
         return response;
     }
@@ -113,12 +132,449 @@ public sealed class EfToDoService
         if (request.LastId != -1)
         {
             response.Events = DbContext
-                .Set<EventEntity>()
-                .Where(x => x.Id > request.LastId)
-                .ToArray();
+               .Set<EventEntity>()
+               .Where(x => x.Id > request.LastId)
+               .ToArray();
         }
 
         return response;
+    }
+
+    private void SwitchComplete(
+        Guid[] ids,
+        FrozenDictionary<Guid, ToDoEntity> allItems,
+        Dictionary<Guid, FullToDo> fullDictionary,
+        List<EditToDoEntity> editToDoEntities,
+        HestiaPostResponse response
+    )
+    {
+        foreach (var id in ids)
+        {
+            var item = allItems[id];
+            var parameters = _toDoParametersFillerService.GetToDoItemParameters(
+                allItems,
+                fullDictionary,
+                item,
+                _gaiaValues.Offset
+            );
+
+            if (!parameters.IsCan.HasFlag(ToDoIsCan.CanComplete))
+            {
+                response.ValidationErrors.Add(new ToDoCantSwitchComplete(id.ToString()));
+
+                continue;
+            }
+
+            if (item.IsCompleted)
+            {
+                editToDoEntities.Add(new(id)
+                {
+                    IsEditIsCompleted = true,
+                    IsCompleted = false,
+                });
+            }
+            else
+            {
+                switch (item.Type)
+                {
+                    case ToDoType.Circle:
+                    case ToDoType.Step:
+                    case ToDoType.Value:
+                    case ToDoType.FixedDate:
+                        editToDoEntities.Add(
+                            new(id)
+                            {
+                                IsEditIsCompleted = true,
+                                IsCompleted = true,
+                            }
+                        );
+
+                        break;
+                    case ToDoType.Group:
+                    case ToDoType.Periodicity:
+                    case ToDoType.PeriodicityOffset:
+                    case ToDoType.Reference:
+                        break;
+                    default:
+                        throw new ArgumentOutOfRangeException();
+                }
+
+                MoveNextDueDate(item, allItems, editToDoEntities);
+                CircleCompletionAsync(allItems, item, true, false, false, editToDoEntities);
+                StepCompletionAsync(allItems, item, false, editToDoEntities);
+            }
+        }
+    }
+
+    private void StepCompletionAsync(
+        FrozenDictionary<Guid, ToDoEntity> allItems,
+        ToDoEntity item,
+        bool completeTask,
+        List<EditToDoEntity> editToDoEntities
+    )
+    {
+        var steps = allItems
+           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Step)
+           .Select(x => x.Value)
+           .ToArray();
+
+        foreach (var step in steps)
+        {
+            step.IsCompleted = completeTask;
+        }
+
+        var groups = allItems
+           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Group)
+           .Select(x => x.Value)
+           .ToArray();
+
+        foreach (var group in groups)
+        {
+            StepCompletionAsync(allItems, group, completeTask, editToDoEntities);
+        }
+
+        var referenceIds = allItems
+           .Where(x =>
+                x.Value.ParentId == item.Id
+             && x.Value.Type == ToDoType.Reference
+             && x.Value.ReferenceId.HasValue
+            )
+           .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
+           .ToArray();
+
+        foreach (var referenceId in referenceIds)
+        {
+            var reference = allItems[referenceId];
+
+            switch (reference.Type)
+            {
+                case ToDoType.Value:
+                    continue;
+                case ToDoType.Group:
+                    StepCompletionAsync(allItems, reference, completeTask, editToDoEntities);
+                    continue;
+                case ToDoType.FixedDate:
+                case ToDoType.Periodicity:
+                case ToDoType.PeriodicityOffset:
+                case ToDoType.Circle:
+                    continue;
+                case ToDoType.Step:
+                    editToDoEntities.Add(
+                        new(referenceId)
+                        {
+                            IsCompleted = completeTask,
+                            IsEditIsCompleted = true,
+                        }
+                    );
+                    continue;
+                case ToDoType.Reference:
+                    continue;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+    }
+
+    private void CircleCompletionAsync(
+        FrozenDictionary<Guid, ToDoEntity> allItems,
+        ToDoEntity item,
+        bool moveCircleOrderIndex,
+        bool completeTask,
+        bool onlyCompletedTasks,
+        List<EditToDoEntity> editToDoEntities
+    )
+    {
+        var circles = allItems
+           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Circle)
+           .Select(x => x.Value)
+           .OrderBy(x => x.OrderIndex)
+           .ToArray();
+
+        if (circles.Any() && (!onlyCompletedTasks || circles.All(x => x.IsCompleted)))
+        {
+            var nextOrderIndex = item.CurrentCircleOrderIndex;
+
+            if (moveCircleOrderIndex)
+            {
+                var next = circles.FirstOrDefault(x => x.OrderIndex > item.CurrentCircleOrderIndex);
+
+                nextOrderIndex = next?.OrderIndex ?? circles[0].OrderIndex;
+                item.CurrentCircleOrderIndex = nextOrderIndex;
+            }
+
+            foreach (var circle in circles)
+            {
+                if (completeTask)
+                {
+                    editToDoEntities.Add(
+                        new(circle.Id)
+                        {
+                            IsCompleted = true,
+                            IsEditIsCompleted = true,
+                        }
+                    );
+                }
+                else
+                {
+                    editToDoEntities.Add(
+                        new(circle.Id)
+                        {
+                            IsCompleted = circle.OrderIndex != nextOrderIndex,
+                            IsEditIsCompleted = true,
+                        }
+                    );
+                }
+            }
+        }
+
+        var groups = allItems
+           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Group)
+           .Select(x => x.Value)
+           .ToArray();
+
+        foreach (var group in groups)
+        {
+            CircleCompletionAsync(
+                allItems,
+                group,
+                moveCircleOrderIndex,
+                completeTask,
+                onlyCompletedTasks,
+                editToDoEntities
+            );
+        }
+
+        var referenceIds = allItems
+           .Where(x =>
+                x.Value.ParentId == item.Id
+             && x.Value.Type == ToDoType.Reference
+             && x.Value.ReferenceId.HasValue
+            )
+           .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
+           .ToArray();
+
+        foreach (var referenceId in referenceIds)
+        {
+            var reference = allItems[referenceId];
+
+            switch (reference.Type)
+            {
+                case ToDoType.Value:
+                    continue;
+                case ToDoType.Group:
+                    CircleCompletionAsync(
+                        allItems,
+                        reference,
+                        moveCircleOrderIndex,
+                        completeTask,
+                        onlyCompletedTasks,
+                        editToDoEntities
+                    );
+                    continue;
+                case ToDoType.FixedDate:
+                case ToDoType.Periodicity:
+                case ToDoType.PeriodicityOffset:
+                case ToDoType.Circle:
+                case ToDoType.Step:
+                case ToDoType.Reference:
+                    continue;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+        }
+    }
+
+    private void MoveNextDueDate(
+        ToDoEntity item,
+        FrozenDictionary<Guid, ToDoEntity> allEntities,
+        List<EditToDoEntity> editToDoEntities
+    )
+    {
+        switch (item.Type)
+        {
+            case ToDoType.Circle:
+            case ToDoType.Step:
+            case ToDoType.Value:
+            case ToDoType.Group:
+            case ToDoType.FixedDate:
+            case ToDoType.Periodicity:
+                AddPeriodicity(item, editToDoEntities);
+                return;
+            case ToDoType.PeriodicityOffset:
+                AddPeriodicityOffset(item, editToDoEntities);
+                return;
+            case ToDoType.Reference:
+                if (!item.ReferenceId.HasValue)
+                {
+                    return;
+                }
+
+                MoveNextDueDate(allEntities[item.ReferenceId.Value], allEntities, editToDoEntities);
+
+                return;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void AddPeriodicity(ToDoEntity item, List<EditToDoEntity> editToDoEntities)
+    {
+        var currentDueDate = item.IsRequiredCompleteInDueDate
+            ? item.DueDate
+            : DateTimeOffset.UtcNow.Add(_gaiaValues.Offset).Date.ToDateOnly();
+
+        switch (item.TypeOfPeriodicity)
+        {
+            case TypeOfPeriodicity.Daily:
+                editToDoEntities.Add(
+                    new(item.Id)
+                    {
+                        IsEditDueDate = true,
+                        DueDate = currentDueDate.AddDays(1),
+                    }
+                );
+                break;
+            case TypeOfPeriodicity.Weekly:
+            {
+                var dayOfWeek = currentDueDate.DayOfWeek;
+                var daysOfWeek = item.GetDaysOfWeek()
+                   .OrderBy(x => x)
+                   .Select(x => (DayOfWeek?)x)
+                   .ToArray();
+                var nextDay = daysOfWeek.FirstOrDefault(x => x > dayOfWeek);
+
+                editToDoEntities.Add(
+                    new(item.Id)
+                    {
+                        IsEditDueDate = true,
+                        DueDate = nextDay is not null
+                            ? currentDueDate.AddDays((int)nextDay - (int)dayOfWeek)
+                            : currentDueDate.AddDays(
+                                7 - (int)dayOfWeek + (int)daysOfWeek.First().ThrowIfNull()
+                            ),
+                    }
+                );
+                break;
+            }
+            case TypeOfPeriodicity.Monthly:
+            {
+                var dayOfMonth = currentDueDate.Day;
+
+                var daysOfMonth = item.GetDaysOfMonth()
+                   .ToArray()
+                   .Order()
+                   .Select(x => (byte?)x)
+                   .ToArray();
+
+                var nextDay = daysOfMonth.FirstOrDefault(x => x > dayOfMonth);
+                var daysInCurrentMonth = DateTime.DaysInMonth(
+                    currentDueDate.Year,
+                    currentDueDate.Month
+                );
+
+                var daysInNextMonth = DateTime.DaysInMonth(
+                    currentDueDate.AddMonths(1).Year,
+                    currentDueDate.AddMonths(1).Month
+                );
+
+                editToDoEntities.Add(
+                    new(item.Id)
+                    {
+                        IsEditDueDate = true,
+                        DueDate = nextDay is not null
+                            ? item.DueDate.WithDay(Math.Min(nextDay.Value, daysInCurrentMonth))
+                            : item
+                               .DueDate.AddMonths(1)
+                               .WithDay(
+                                    Math.Min(
+                                        (int)daysOfMonth.First().ThrowIfNull(),
+                                        daysInNextMonth
+                                    )
+                                ),
+                    }
+                );
+
+                break;
+            }
+            case TypeOfPeriodicity.Annually:
+            {
+                var daysOfYear = item.GetDaysOfYear()
+                   .OrderBy(x => x)
+                   .Select(x => (DayOfYear?)x)
+                   .ToArray();
+
+                var nextDay = daysOfYear.FirstOrDefault(x =>
+                    x.ThrowIfNull().Month >= (Month)currentDueDate.Month
+                 && x.ThrowIfNull().Day > currentDueDate.Day
+                );
+
+                var daysInNextMonth = DateTime.DaysInMonth(
+                    currentDueDate.Year + 1,
+                    (byte)daysOfYear.First().ThrowIfNull().Month
+                );
+
+                editToDoEntities.Add(
+                    new(item.Id)
+                    {
+                        IsEditDueDate = true,
+                        DueDate = nextDay is not null
+                            ? item
+                               .DueDate.WithMonth((byte)nextDay.Month)
+                               .WithDay(
+                                    Math.Min(
+                                        DateTime.DaysInMonth(
+                                            currentDueDate.Year,
+                                            (byte)nextDay.Month
+                                        ),
+                                        nextDay.Day
+                                    )
+                                )
+                            : item
+                               .DueDate.AddYears(1)
+                               .WithMonth((byte)daysOfYear.First().ThrowIfNull().Month)
+                               .WithDay(
+                                    Math.Min(daysInNextMonth, daysOfYear.First().ThrowIfNull().Day)
+                                ),
+                    }
+                );
+
+                break;
+            }
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+    }
+
+    private void AddPeriodicityOffset(ToDoEntity item, List<EditToDoEntity> editToDoEntities)
+    {
+        if (item.IsRequiredCompleteInDueDate)
+        {
+            editToDoEntities.Add(
+                new(item.Id)
+                {
+                    IsEditDueDate = true,
+                    DueDate = item
+                       .DueDate.AddDays(item.DaysOffset + item.WeeksOffset * 7)
+                       .AddMonths(item.MonthsOffset)
+                       .AddYears(item.YearsOffset),
+                }
+            );
+        }
+        else
+        {
+            editToDoEntities.Add(
+                new(item.Id)
+                {
+                    IsEditDueDate = true,
+                    DueDate = DateTimeOffset
+                       .UtcNow.Add(_gaiaValues.Offset)
+                       .Date.ToDateOnly()
+                       .AddDays(item.DaysOffset + item.WeeksOffset * 7)
+                       .AddMonths(item.MonthsOffset)
+                       .AddYears(item.YearsOffset),
+                }
+            );
+        }
     }
 
     private ValueTask DeleteAsync(Guid[] ids, CancellationToken ct)
@@ -164,11 +620,11 @@ public sealed class EfToDoService
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var parentItems = startItems.Select(x => x.ParentId).Distinct().ToFrozenSet();
         var query = DbContext
-            .Set<EventEntity>()
-            .GetProperty(nameof(ToDoEntity), nameof(ToDoEntity.ParentId))
-            .Where(x => parentItems.Contains(x.EntityGuidValue))
-            .Select(x => x.EntityId)
-            .Distinct();
+           .Set<EventEntity>()
+           .GetProperty(nameof(ToDoEntity), nameof(ToDoEntity.ParentId))
+           .Where(x => parentItems.Contains(x.EntityGuidValue))
+           .Select(x => x.EntityId)
+           .Distinct();
         var siblings = ToDoEntity.GetEntities(
             DbContext.Set<EventEntity>().Where(x => query.Contains(x.EntityId))
         );
@@ -194,8 +650,8 @@ public sealed class EfToDoService
                 : items.Where(x => x.OrderIndex >= item.OrderIndex);
 
             var newOrder = inserts
-                .Concat(usedItems.Where(x => !insertIds.Contains(x.Id)))
-                .ToFrozenSet();
+               .Concat(usedItems.Where(x => !insertIds.Contains(x.Id)))
+               .ToFrozenSet();
 
             foreach (var newItem in newOrder)
             {
@@ -337,12 +793,12 @@ public sealed class EfToDoService
         if (request.IsSelectors)
         {
             response.Selectors = roots
-                .Select(x => new ToDoSelector
+               .Select(x => new ToDoSelector
                 {
                     Item = x.ToToDoShort(),
                     Children = GetToDoSelectorItems(items, x.Id).ToArray(),
                 })
-                .ToArray();
+               .ToArray();
         }
 
         if (request.ToStringIds.Length != 0)
@@ -356,7 +812,11 @@ public sealed class EfToDoService
                     ToDoItemToString(
                         dictionary,
                         fullDictionary,
-                        new() { Id = id, Statuses = item.Statuses },
+                        new()
+                        {
+                            Id = id,
+                            Statuses = item.Statuses,
+                        },
                         0,
                         builder,
                         _gaiaValues.Offset
@@ -371,9 +831,9 @@ public sealed class EfToDoService
         {
             response.CurrentActive.IsResponse = true;
             var rootsFullItems = roots
-                .Select(i => GetFullItem(dictionary, fullDictionary, i, _gaiaValues.Offset))
-                .OrderBy(x => x.Parameters.OrderIndex)
-                .ToArray();
+               .Select(i => GetFullItem(dictionary, fullDictionary, i, _gaiaValues.Offset))
+               .OrderBy(x => x.Parameters.OrderIndex)
+               .ToArray();
 
             foreach (var rootsFullItem in rootsFullItems)
             {
@@ -403,18 +863,18 @@ public sealed class EfToDoService
         if (request.IsFavorites)
         {
             response.Favorites = dictionary
-                .Where(x => x.Value.IsFavorite)
-                .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x.Value, _gaiaValues.Offset))
-                .ToArray();
+               .Where(x => x.Value.IsFavorite)
+               .ToArray()
+               .Select(x => GetFullItem(dictionary, fullDictionary, x.Value, _gaiaValues.Offset))
+               .ToArray();
         }
 
         if (request.IsBookmarks)
         {
             response.Bookmarks = dictionary
-                .Where(x => x.Value.IsBookmark)
-                .Select(x => x.Value.ToToDoShort())
-                .ToArray();
+               .Where(x => x.Value.IsBookmark)
+               .Select(x => x.Value.ToToDoShort())
+               .ToArray();
         }
 
         if (request.ChildrenIds.Length != 0)
@@ -424,12 +884,12 @@ public sealed class EfToDoService
                 response.Children.Add(
                     id,
                     dictionary
-                        .Values.Where(x => x.ParentId == id)
-                        .ToArray()
-                        .Select(item =>
+                       .Values.Where(x => x.ParentId == id)
+                       .ToArray()
+                       .Select(item =>
                             GetFullItem(dictionary, fullDictionary, item, _gaiaValues.Offset)
                         )
-                        .ToArray()
+                       .ToArray()
                 );
             }
         }
@@ -447,7 +907,7 @@ public sealed class EfToDoService
                             new(),
                             _gaiaValues.Offset
                         )
-                        .ToArray()
+                       .ToArray()
                 );
             }
         }
@@ -457,19 +917,19 @@ public sealed class EfToDoService
         if (!isEmptySearchText || request.Search.Types.Length != 0)
         {
             response.Search = dictionary
-                .Values.Where(x =>
+               .Values.Where(x =>
                     isEmptySearchText
-                    || x.Name.Contains(
+                 || x.Name.Contains(
                         request.Search.SearchText,
                         StringComparison.InvariantCultureIgnoreCase
                     )
                 )
-                .Where(x =>
+               .Where(x =>
                     request.Search.Types.Length == 0 || request.Search.Types.Contains(x.Type)
                 )
-                .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
-                .ToArray();
+               .ToArray()
+               .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+               .ToArray();
         }
 
         if (request.ParentIds.Length != 0)
@@ -485,39 +945,39 @@ public sealed class EfToDoService
             var today = DateTimeOffset.UtcNow.Add(_gaiaValues.Offset).Date.ToDateOnly();
 
             response.Today = dictionary
-                .Values.Where(x =>
-                    x is { Type: ToDoType.Periodicity or ToDoType.PeriodicityOffset }
-                        && (
-                            x.DueDate <= today
-                            || x.RemindDaysBefore != 0
-                                && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
-                        )
-                    || x is { Type: ToDoType.FixedDate, IsCompleted: false }
-                        && (
-                            x.DueDate <= today
-                            || x.RemindDaysBefore != 0
-                                && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
-                        )
+               .Values.Where(x =>
+                    x is { Type: ToDoType.Periodicity or ToDoType.PeriodicityOffset, }
+                 && (
+                        x.DueDate <= today
+                     || x.RemindDaysBefore != 0
+                     && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
+                    )
+                 || x is { Type: ToDoType.FixedDate, IsCompleted: false, }
+                 && (
+                        x.DueDate <= today
+                     || x.RemindDaysBefore != 0
+                     && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
+                    )
                 )
-                .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
-                .ToArray();
+               .ToArray()
+               .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+               .ToArray();
         }
 
         if (request.IsRoots)
         {
             response.Roots = roots
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
-                .ToArray();
+               .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+               .ToArray();
         }
 
         if (request.Items.Length != 0)
         {
             response.Items = request
-                .Items.Select(x =>
+               .Items.Select(x =>
                     GetFullItem(dictionary, fullDictionary, dictionary[x], _gaiaValues.Offset)
                 )
-                .ToArray();
+               .ToArray();
         }
 
         return response;
@@ -547,9 +1007,9 @@ public sealed class EfToDoService
     )
     {
         var items = allItems
-            .Values.Where(x => x.ParentId == options.Id)
-            .OrderBy(x => x.OrderIndex)
-            .ToArray();
+           .Values.Where(x => x.ParentId == options.Id)
+           .OrderBy(x => x.OrderIndex)
+           .ToArray();
 
         foreach (var item in items)
         {
@@ -567,7 +1027,11 @@ public sealed class EfToDoService
             ToDoItemToString(
                 allItems,
                 fullToDoItems,
-                new() { Id = item.Id, Statuses = options.Statuses },
+                new()
+                {
+                    Id = item.Id,
+                    Statuses = options.Statuses,
+                },
                 (ushort)(level + 1),
                 builder,
                 offset
@@ -634,9 +1098,9 @@ public sealed class EfToDoService
         }
 
         var entities = allItems
-            .Values.Where(x => x.ParentId == entity.Id)
-            .OrderBy(x => x.OrderIndex)
-            .ToArray();
+           .Values.Where(x => x.ParentId == entity.Id)
+           .OrderBy(x => x.OrderIndex)
+           .ToArray();
 
         if (entities.Length == 0)
         {
