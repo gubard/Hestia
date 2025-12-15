@@ -77,7 +77,7 @@ public sealed class EfToDoService
            .ToDictionary(x => x.Id)
            .ToFrozenDictionary();
 
-        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities, response);
+        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
 
         await ToDoEntity.EditEntitiesAsync(
             DbContext,
@@ -111,7 +111,7 @@ public sealed class EfToDoService
            .ToDictionary(x => x.Id)
            .ToFrozenDictionary();
 
-        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities, response);
+        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
         ToDoEntity.EditEntities(DbContext, _gaiaValues.UserId.ToString(), editEntities.ToArray());
         Delete(request.DeleteIds);
         DbContext.SaveChanges();
@@ -144,13 +144,13 @@ public sealed class EfToDoService
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allItems,
         Dictionary<Guid, FullToDo> fullDictionary,
-        List<EditToDoEntity> editToDoEntities,
-        HestiaPostResponse response
+        List<EditToDoEntity> editToDoEntities
     )
     {
         foreach (var id in ids)
         {
             var item = allItems[id];
+            
             var parameters = _toDoParametersFillerService.GetToDoItemParameters(
                 allItems,
                 fullDictionary,
@@ -158,14 +158,12 @@ public sealed class EfToDoService
                 _gaiaValues.Offset
             );
 
-            if (!parameters.IsCan.HasFlag(ToDoIsCan.CanComplete))
+            if (parameters.IsCan == ToDoIsCan.None)
             {
-                response.ValidationErrors.Add(new ToDoCantSwitchComplete(id.ToString()));
-
                 continue;
             }
 
-            if (item.IsCompleted)
+            if (item.IsCompleted && parameters.IsCan == ToDoIsCan.CanIncomplete)
             {
                 editToDoEntities.Add(new(id)
                 {
@@ -173,7 +171,7 @@ public sealed class EfToDoService
                     IsCompleted = false,
                 });
             }
-            else
+            else if(!item.IsCompleted && parameters.IsCan == ToDoIsCan.CanComplete)
             {
                 switch (item.Type)
                 {
