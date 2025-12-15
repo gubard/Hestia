@@ -8,11 +8,11 @@ public static class Mapper
 {
     public static IEnumerable<EditToDoEntity> ToEditToDoEntities(this EditToDos edit)
     {
-         foreach (var id in edit.Ids)
-         {
-             yield return new(id)
-             {
-                 IsEditName = edit.IsEditName,
+        foreach (var id in edit.Ids)
+        {
+            yield return new(id)
+            {
+                IsEditName = edit.IsEditName,
                 Name = edit.Name,
 
                 IsEditDescription = edit.IsEditDescription,
@@ -80,12 +80,11 @@ public static class Mapper
 
                 IsEditReferenceId = edit.IsEditReferenceId,
                 ReferenceId = edit.ReferenceId,
-             };
-         }
+            };
+        }
     }
-    
-    public static FullToDo ToFullToDo(this ToDoEntity entity,
-        ToDoItemParameters parameters)
+
+    public static FullToDo ToFullToDo(this ToDoEntity entity, ToDoItemParameters parameters)
     {
         return new()
         {
@@ -109,8 +108,11 @@ public static class Mapper
             IsFavorite = entity.IsFavorite,
             DueDate = entity.DueDate,
             TypeOfPeriodicity = entity.TypeOfPeriodicity,
-            AnnuallyDays = entity.AnnuallyDays.Split(";").Select(x => x.Split('.'))
-               .Select(x => new DayOfYear(byte.Parse(x[1]), Enum.Parse<Month>(x[0]))).ToArray(),
+            AnnuallyDays = entity
+                .AnnuallyDays.Split(";")
+                .Select(x => x.Split('.'))
+                .Select(x => new DayOfYear(byte.Parse(x[1]), Enum.Parse<Month>(x[0])))
+                .ToArray(),
             MonthlyDays = entity.MonthlyDays.Split(";").Select(int.Parse).ToArray(),
             WeeklyDays = entity.WeeklyDays.Split(";").Select(Enum.Parse<DayOfWeek>).ToArray(),
             DaysOffset = entity.DaysOffset,
@@ -128,7 +130,6 @@ public static class Mapper
             RemindDaysBefore = entity.RemindDaysBefore,
         };
     }
-
 
     public static ToDoEntity ToToDoEntity(this ShortToDo entity)
     {

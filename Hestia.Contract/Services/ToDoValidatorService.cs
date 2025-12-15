@@ -11,13 +11,25 @@ public interface IToDoValidator : IValidator<string>, IValidator<IToDo>;
 public sealed class ToDoValidator : IToDoValidator
 {
     private const string ValidNameChars =
-        StringHelper.UpperLatin + StringHelper.LowerLatin + StringHelper.Number + StringHelper.SpecialSymbols + " ";
+        StringHelper.UpperLatin
+        + StringHelper.LowerLatin
+        + StringHelper.Number
+        + StringHelper.SpecialSymbols
+        + " ";
 
     private const string ValidDescriptionChars =
-        StringHelper.UpperLatin + StringHelper.LowerLatin + StringHelper.Number + StringHelper.SpecialSymbols + " ";
+        StringHelper.UpperLatin
+        + StringHelper.LowerLatin
+        + StringHelper.Number
+        + StringHelper.SpecialSymbols
+        + " ";
 
-    private static readonly SearchValues<char> ValidNameValues = SearchValues.Create(ValidNameChars);
-    private static readonly SearchValues<char> ValidDescriptionValues = SearchValues.Create(ValidDescriptionChars);
+    private static readonly SearchValues<char> ValidNameValues = SearchValues.Create(
+        ValidNameChars
+    );
+    private static readonly SearchValues<char> ValidDescriptionValues = SearchValues.Create(
+        ValidDescriptionChars
+    );
 
     public ValidationError[] Validate(string value, string identity)
     {
@@ -27,17 +39,17 @@ public sealed class ToDoValidator : IToDoValidator
             {
                 if (value.Length > 255)
                 {
-                    return [new PropertyMaxSizeValidationError("Name", (ulong)value.Length, 255),];
+                    return [new PropertyMaxSizeValidationError("Name", (ulong)value.Length, 255)];
                 }
 
                 if (value.IsNullOrWhiteSpace())
                 {
-                    return [new PropertyEmptyValidationError("Name"),];
+                    return [new PropertyEmptyValidationError("Name")];
                 }
 
                 if (value.Length < 1)
                 {
-                    return [new PropertyMinSizeValidationError("Name", (ulong)value.Length, 3),];
+                    return [new PropertyMinSizeValidationError("Name", (ulong)value.Length, 3)];
                 }
 
                 var index = value.IndexOfAnyExcept(ValidNameValues);
@@ -46,8 +58,11 @@ public sealed class ToDoValidator : IToDoValidator
                 {
                     return
                     [
-                        new PropertyContainsInvalidValueValidationError<char>("Name", value[index],
-                            ValidNameChars.ToCharArray()),
+                        new PropertyContainsInvalidValueValidationError<char>(
+                            "Name",
+                            value[index],
+                            ValidNameChars.ToCharArray()
+                        ),
                     ];
                 }
 
@@ -57,7 +72,14 @@ public sealed class ToDoValidator : IToDoValidator
             {
                 if (value.Length > 10_000)
                 {
-                    return [new PropertyMaxSizeValidationError("Description", (ulong)value.Length, 10_000),];
+                    return
+                    [
+                        new PropertyMaxSizeValidationError(
+                            "Description",
+                            (ulong)value.Length,
+                            10_000
+                        ),
+                    ];
                 }
 
                 if (value.IsNullOrWhiteSpace())
@@ -71,14 +93,18 @@ public sealed class ToDoValidator : IToDoValidator
                 {
                     return
                     [
-                        new PropertyContainsInvalidValueValidationError<char>("Description", value[index],
-                            ValidDescriptionChars.ToCharArray()),
+                        new PropertyContainsInvalidValueValidationError<char>(
+                            "Description",
+                            value[index],
+                            ValidDescriptionChars.ToCharArray()
+                        ),
                     ];
                 }
 
                 return [];
             }
-            default: throw new ArgumentOutOfRangeException(nameof(identity), identity, null);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(identity), identity, null);
         }
     }
 
@@ -89,48 +115,52 @@ public sealed class ToDoValidator : IToDoValidator
             case ToDoType.FixedDate:
                 switch (identity)
                 {
-                    case nameof(value.DueDate): return ValidateDueDate(value.DueDate);
-                    case nameof(value.Link): return ValidateLink(value.Link);
+                    case nameof(value.DueDate):
+                        return ValidateDueDate(value.DueDate);
+                    case nameof(value.Link):
+                        return ValidateLink(value.Link);
                 }
 
                 return [];
             case ToDoType.Periodicity:
                 switch (identity)
                 {
-                    case nameof(value.DueDate): return ValidateDueDate(value.DueDate);
-                    case nameof(value.Link): return ValidateLink(value.Link);
+                    case nameof(value.DueDate):
+                        return ValidateDueDate(value.DueDate);
+                    case nameof(value.Link):
+                        return ValidateLink(value.Link);
                     case nameof(value.AnnuallyDays):
                     {
-                        if (value.TypeOfPeriodicity == TypeOfPeriodicity.Annually && !value.AnnuallyDays.Any())
+                        if (
+                            value.TypeOfPeriodicity == TypeOfPeriodicity.Annually
+                            && !value.AnnuallyDays.Any()
+                        )
                         {
-                            return
-                            [
-                                new PropertyInvalidValidationError(nameof(value.AnnuallyDays)),
-                            ];
+                            return [new PropertyInvalidValidationError(nameof(value.AnnuallyDays))];
                         }
 
                         break;
                     }
                     case nameof(value.MonthlyDays):
                     {
-                        if (value.TypeOfPeriodicity == TypeOfPeriodicity.Monthly && !value.MonthlyDays.Any())
+                        if (
+                            value.TypeOfPeriodicity == TypeOfPeriodicity.Monthly
+                            && !value.MonthlyDays.Any()
+                        )
                         {
-                            return
-                            [
-                                new PropertyInvalidValidationError(nameof(value.MonthlyDays)),
-                            ];
+                            return [new PropertyInvalidValidationError(nameof(value.MonthlyDays))];
                         }
 
                         break;
                     }
                     case nameof(value.WeeklyDays):
                     {
-                        if (value.TypeOfPeriodicity == TypeOfPeriodicity.Weekly && !value.WeeklyDays.Any())
+                        if (
+                            value.TypeOfPeriodicity == TypeOfPeriodicity.Weekly
+                            && !value.WeeklyDays.Any()
+                        )
                         {
-                            return
-                            [
-                                new PropertyInvalidValidationError(nameof(value.WeeklyDays)),
-                            ];
+                            return [new PropertyInvalidValidationError(nameof(value.WeeklyDays))];
                         }
 
                         break;
@@ -141,13 +171,18 @@ public sealed class ToDoValidator : IToDoValidator
             case ToDoType.PeriodicityOffset:
                 switch (identity)
                 {
-                    case nameof(value.DueDate): return ValidateDueDate(value.DueDate);
-                    case nameof(value.Link): return ValidateLink(value.Link);
+                    case nameof(value.DueDate):
+                        return ValidateDueDate(value.DueDate);
+                    case nameof(value.Link):
+                        return ValidateLink(value.Link);
                     case nameof(value.DaysOffset):
                     {
-                        if (value is { DaysOffset: 0, WeeksOffset: 0, MonthsOffset: 0, YearsOffset: 0, })
+                        if (
+                            value is
+                            { DaysOffset: 0, WeeksOffset: 0, MonthsOffset: 0, YearsOffset: 0 }
+                        )
                         {
-                            return [new PropertyEmptyValidationError("Offset"),];
+                            return [new PropertyEmptyValidationError("Offset")];
                         }
 
                         break;
@@ -162,7 +197,7 @@ public sealed class ToDoValidator : IToDoValidator
                     {
                         if (value.ReferenceId is null)
                         {
-                            return [new PropertyEmptyValidationError("Reference"),];
+                            return [new PropertyEmptyValidationError("Reference")];
                         }
 
                         break;
@@ -180,7 +215,8 @@ public sealed class ToDoValidator : IToDoValidator
                     _ => [],
                 };
 
-            default: throw new ArgumentOutOfRangeException(nameof(identity), identity, null);
+            default:
+                throw new ArgumentOutOfRangeException(nameof(identity), identity, null);
         }
     }
 
@@ -188,7 +224,10 @@ public sealed class ToDoValidator : IToDoValidator
     {
         if (link.Length > 1000)
         {
-            return [new PropertyMaxSizeValidationError(nameof(IToDo.Link), (ulong)link.Length, 1000),];
+            return
+            [
+                new PropertyMaxSizeValidationError(nameof(IToDo.Link), (ulong)link.Length, 1000),
+            ];
         }
 
         if (link.IsNullOrWhiteSpace())
@@ -198,7 +237,7 @@ public sealed class ToDoValidator : IToDoValidator
 
         if (!link.IsLink())
         {
-            return [new PropertyInvalidValidationError(nameof(IToDo.Link)),];
+            return [new PropertyInvalidValidationError(nameof(IToDo.Link))];
         }
 
         return [];
@@ -212,8 +251,7 @@ public sealed class ToDoValidator : IToDoValidator
         {
             return
             [
-                new PropertyTheDateHasExpiredValidationError("DueDate", dueDate,
-                    now.ToDateOnly()),
+                new PropertyTheDateHasExpiredValidationError("DueDate", dueDate, now.ToDateOnly()),
             ];
         }
 
