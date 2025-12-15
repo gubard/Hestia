@@ -1,4 +1,5 @@
 ﻿using System.Collections.Frozen;
+using System.Security.Cryptography;
 using System.Text;
 using Gaia.Helpers;
 using Gaia.Models;
@@ -53,9 +54,9 @@ public sealed class EfToDoService
         if (request.LastId != -1)
         {
             response.Events = await DbContext
-               .Set<EventEntity>()
-               .Where(x => x.Id > request.LastId)
-               .ToArrayAsync(ct);
+                .Set<EventEntity>()
+                .Where(x => x.Id > request.LastId)
+                .ToArrayAsync(ct);
         }
 
         return response;
@@ -74,10 +75,11 @@ public sealed class EfToDoService
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
 
         var allItems = (await ToDoEntity.GetEntitiesAsync(DbContext.Set<EventEntity>(), ct))
-           .ToDictionary(x => x.Id)
-           .ToFrozenDictionary();
+            .ToDictionary(x => x.Id)
+            .ToFrozenDictionary();
 
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
+        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
 
         await ToDoEntity.EditEntitiesAsync(
             DbContext,
@@ -90,9 +92,9 @@ public sealed class EfToDoService
         await DbContext.SaveChangesAsync(ct);
 
         response.Events = await DbContext
-           .Set<EventEntity>()
-           .Where(x => x.Id > request.LastLocalId)
-           .ToArrayAsync(ct);
+            .Set<EventEntity>()
+            .Where(x => x.Id > request.LastLocalId)
+            .ToArrayAsync(ct);
 
         return response;
     }
@@ -107,19 +109,20 @@ public sealed class EfToDoService
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
 
         var allItems = ToDoEntity
-           .GetEntities(DbContext.Set<EventEntity>())
-           .ToDictionary(x => x.Id)
-           .ToFrozenDictionary();
+            .GetEntities(DbContext.Set<EventEntity>())
+            .ToDictionary(x => x.Id)
+            .ToFrozenDictionary();
 
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
+        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
         ToDoEntity.EditEntities(DbContext, _gaiaValues.UserId.ToString(), editEntities.ToArray());
         Delete(request.DeleteIds);
         DbContext.SaveChanges();
 
         response.Events = DbContext
-           .Set<EventEntity>()
-           .Where(x => x.Id > request.LastLocalId)
-           .ToArray();
+            .Set<EventEntity>()
+            .Where(x => x.Id > request.LastLocalId)
+            .ToArray();
 
         return response;
     }
@@ -132,12 +135,40 @@ public sealed class EfToDoService
         if (request.LastId != -1)
         {
             response.Events = DbContext
-               .Set<EventEntity>()
-               .Where(x => x.Id > request.LastId)
-               .ToArray();
+                .Set<EventEntity>()
+                .Where(x => x.Id > request.LastId)
+                .ToArray();
         }
 
         return response;
+    }
+
+    public void RandomizeChildrenOrderIndex(
+        Guid[] ids,
+        FrozenDictionary<Guid, ToDoEntity> allEntities,
+        List<EditToDoEntity> editEntities
+    )
+    {
+        foreach (var id in ids)
+        {
+            var children = allEntities
+                .Values.Where(x => x.ParentId == id)
+                .ForEach(x =>
+                    x.OrderIndex = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4))
+                )
+                .ToArray();
+
+            editEntities.AddRange(
+                children.Select(
+                    (child, index) =>
+                        new EditToDoEntity(child.Id)
+                        {
+                            IsEditOrderIndex = true,
+                            OrderIndex = (uint)index + 1,
+                        }
+                )
+            );
+        }
     }
 
     private void SwitchComplete(
@@ -150,7 +181,7 @@ public sealed class EfToDoService
         foreach (var id in ids)
         {
             var item = allItems[id];
-            
+
             var parameters = _toDoParametersFillerService.GetToDoItemParameters(
                 allItems,
                 fullDictionary,
@@ -165,13 +196,9 @@ public sealed class EfToDoService
 
             if (item.IsCompleted && parameters.IsCan == ToDoIsCan.CanIncomplete)
             {
-                editToDoEntities.Add(new(id)
-                {
-                    IsEditIsCompleted = true,
-                    IsCompleted = false,
-                });
+                editToDoEntities.Add(new(id) { IsEditIsCompleted = true, IsCompleted = false });
             }
-            else if(!item.IsCompleted && parameters.IsCan == ToDoIsCan.CanComplete)
+            else if (!item.IsCompleted && parameters.IsCan == ToDoIsCan.CanComplete)
             {
                 switch (item.Type)
                 {
@@ -180,11 +207,7 @@ public sealed class EfToDoService
                     case ToDoType.Value:
                     case ToDoType.FixedDate:
                         editToDoEntities.Add(
-                            new(id)
-                            {
-                                IsEditIsCompleted = true,
-                                IsCompleted = true,
-                            }
+                            new(id) { IsEditIsCompleted = true, IsCompleted = true }
                         );
 
                         break;
@@ -212,9 +235,9 @@ public sealed class EfToDoService
     )
     {
         var steps = allItems
-           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Step)
-           .Select(x => x.Value)
-           .ToArray();
+            .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Step)
+            .Select(x => x.Value)
+            .ToArray();
 
         foreach (var step in steps)
         {
@@ -222,9 +245,9 @@ public sealed class EfToDoService
         }
 
         var groups = allItems
-           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Group)
-           .Select(x => x.Value)
-           .ToArray();
+            .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Group)
+            .Select(x => x.Value)
+            .ToArray();
 
         foreach (var group in groups)
         {
@@ -232,13 +255,13 @@ public sealed class EfToDoService
         }
 
         var referenceIds = allItems
-           .Where(x =>
+            .Where(x =>
                 x.Value.ParentId == item.Id
-             && x.Value.Type == ToDoType.Reference
-             && x.Value.ReferenceId.HasValue
+                && x.Value.Type == ToDoType.Reference
+                && x.Value.ReferenceId.HasValue
             )
-           .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
-           .ToArray();
+            .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
+            .ToArray();
 
         foreach (var referenceId in referenceIds)
         {
@@ -258,11 +281,7 @@ public sealed class EfToDoService
                     continue;
                 case ToDoType.Step:
                     editToDoEntities.Add(
-                        new(referenceId)
-                        {
-                            IsCompleted = completeTask,
-                            IsEditIsCompleted = true,
-                        }
+                        new(referenceId) { IsCompleted = completeTask, IsEditIsCompleted = true }
                     );
                     continue;
                 case ToDoType.Reference:
@@ -283,10 +302,10 @@ public sealed class EfToDoService
     )
     {
         var circles = allItems
-           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Circle)
-           .Select(x => x.Value)
-           .OrderBy(x => x.OrderIndex)
-           .ToArray();
+            .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Circle)
+            .Select(x => x.Value)
+            .OrderBy(x => x.OrderIndex)
+            .ToArray();
 
         if (circles.Any() && (!onlyCompletedTasks || circles.All(x => x.IsCompleted)))
         {
@@ -305,11 +324,7 @@ public sealed class EfToDoService
                 if (completeTask)
                 {
                     editToDoEntities.Add(
-                        new(circle.Id)
-                        {
-                            IsCompleted = true,
-                            IsEditIsCompleted = true,
-                        }
+                        new(circle.Id) { IsCompleted = true, IsEditIsCompleted = true }
                     );
                 }
                 else
@@ -326,9 +341,9 @@ public sealed class EfToDoService
         }
 
         var groups = allItems
-           .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Group)
-           .Select(x => x.Value)
-           .ToArray();
+            .Where(x => x.Value.ParentId == item.Id && x.Value.Type == ToDoType.Group)
+            .Select(x => x.Value)
+            .ToArray();
 
         foreach (var group in groups)
         {
@@ -343,13 +358,13 @@ public sealed class EfToDoService
         }
 
         var referenceIds = allItems
-           .Where(x =>
+            .Where(x =>
                 x.Value.ParentId == item.Id
-             && x.Value.Type == ToDoType.Reference
-             && x.Value.ReferenceId.HasValue
+                && x.Value.Type == ToDoType.Reference
+                && x.Value.ReferenceId.HasValue
             )
-           .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
-           .ToArray();
+            .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
+            .ToArray();
 
         foreach (var referenceId in referenceIds)
         {
@@ -425,20 +440,16 @@ public sealed class EfToDoService
         {
             case TypeOfPeriodicity.Daily:
                 editToDoEntities.Add(
-                    new(item.Id)
-                    {
-                        IsEditDueDate = true,
-                        DueDate = currentDueDate.AddDays(1),
-                    }
+                    new(item.Id) { IsEditDueDate = true, DueDate = currentDueDate.AddDays(1) }
                 );
                 break;
             case TypeOfPeriodicity.Weekly:
             {
                 var dayOfWeek = currentDueDate.DayOfWeek;
                 var daysOfWeek = item.GetDaysOfWeek()
-                   .OrderBy(x => x)
-                   .Select(x => (DayOfWeek?)x)
-                   .ToArray();
+                    .OrderBy(x => x)
+                    .Select(x => (DayOfWeek?)x)
+                    .ToArray();
                 var nextDay = daysOfWeek.FirstOrDefault(x => x > dayOfWeek);
 
                 editToDoEntities.Add(
@@ -459,10 +470,10 @@ public sealed class EfToDoService
                 var dayOfMonth = currentDueDate.Day;
 
                 var daysOfMonth = item.GetDaysOfMonth()
-                   .ToArray()
-                   .Order()
-                   .Select(x => (byte?)x)
-                   .ToArray();
+                    .ToArray()
+                    .Order()
+                    .Select(x => (byte?)x)
+                    .ToArray();
 
                 var nextDay = daysOfMonth.FirstOrDefault(x => x > dayOfMonth);
                 var daysInCurrentMonth = DateTime.DaysInMonth(
@@ -482,8 +493,8 @@ public sealed class EfToDoService
                         DueDate = nextDay is not null
                             ? item.DueDate.WithDay(Math.Min(nextDay.Value, daysInCurrentMonth))
                             : item
-                               .DueDate.AddMonths(1)
-                               .WithDay(
+                                .DueDate.AddMonths(1)
+                                .WithDay(
                                     Math.Min(
                                         (int)daysOfMonth.First().ThrowIfNull(),
                                         daysInNextMonth
@@ -497,13 +508,13 @@ public sealed class EfToDoService
             case TypeOfPeriodicity.Annually:
             {
                 var daysOfYear = item.GetDaysOfYear()
-                   .OrderBy(x => x)
-                   .Select(x => (DayOfYear?)x)
-                   .ToArray();
+                    .OrderBy(x => x)
+                    .Select(x => (DayOfYear?)x)
+                    .ToArray();
 
                 var nextDay = daysOfYear.FirstOrDefault(x =>
                     x.ThrowIfNull().Month >= (Month)currentDueDate.Month
-                 && x.ThrowIfNull().Day > currentDueDate.Day
+                    && x.ThrowIfNull().Day > currentDueDate.Day
                 );
 
                 var daysInNextMonth = DateTime.DaysInMonth(
@@ -517,8 +528,8 @@ public sealed class EfToDoService
                         IsEditDueDate = true,
                         DueDate = nextDay is not null
                             ? item
-                               .DueDate.WithMonth((byte)nextDay.Month)
-                               .WithDay(
+                                .DueDate.WithMonth((byte)nextDay.Month)
+                                .WithDay(
                                     Math.Min(
                                         DateTime.DaysInMonth(
                                             currentDueDate.Year,
@@ -528,9 +539,9 @@ public sealed class EfToDoService
                                     )
                                 )
                             : item
-                               .DueDate.AddYears(1)
-                               .WithMonth((byte)daysOfYear.First().ThrowIfNull().Month)
-                               .WithDay(
+                                .DueDate.AddYears(1)
+                                .WithMonth((byte)daysOfYear.First().ThrowIfNull().Month)
+                                .WithDay(
                                     Math.Min(daysInNextMonth, daysOfYear.First().ThrowIfNull().Day)
                                 ),
                     }
@@ -552,9 +563,9 @@ public sealed class EfToDoService
                 {
                     IsEditDueDate = true,
                     DueDate = item
-                       .DueDate.AddDays(item.DaysOffset + item.WeeksOffset * 7)
-                       .AddMonths(item.MonthsOffset)
-                       .AddYears(item.YearsOffset),
+                        .DueDate.AddDays(item.DaysOffset + item.WeeksOffset * 7)
+                        .AddMonths(item.MonthsOffset)
+                        .AddYears(item.YearsOffset),
                 }
             );
         }
@@ -565,11 +576,11 @@ public sealed class EfToDoService
                 {
                     IsEditDueDate = true,
                     DueDate = DateTimeOffset
-                       .UtcNow.Add(_gaiaValues.Offset)
-                       .Date.ToDateOnly()
-                       .AddDays(item.DaysOffset + item.WeeksOffset * 7)
-                       .AddMonths(item.MonthsOffset)
-                       .AddYears(item.YearsOffset),
+                        .UtcNow.Add(_gaiaValues.Offset)
+                        .Date.ToDateOnly()
+                        .AddDays(item.DaysOffset + item.WeeksOffset * 7)
+                        .AddMonths(item.MonthsOffset)
+                        .AddYears(item.YearsOffset),
                 }
             );
         }
@@ -618,11 +629,11 @@ public sealed class EfToDoService
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var parentItems = startItems.Select(x => x.ParentId).Distinct().ToFrozenSet();
         var query = DbContext
-           .Set<EventEntity>()
-           .GetProperty(nameof(ToDoEntity), nameof(ToDoEntity.ParentId))
-           .Where(x => parentItems.Contains(x.EntityGuidValue))
-           .Select(x => x.EntityId)
-           .Distinct();
+            .Set<EventEntity>()
+            .GetProperty(nameof(ToDoEntity), nameof(ToDoEntity.ParentId))
+            .Where(x => parentItems.Contains(x.EntityGuidValue))
+            .Select(x => x.EntityId)
+            .Distinct();
         var siblings = ToDoEntity.GetEntities(
             DbContext.Set<EventEntity>().Where(x => query.Contains(x.EntityId))
         );
@@ -648,8 +659,8 @@ public sealed class EfToDoService
                 : items.Where(x => x.OrderIndex >= item.OrderIndex);
 
             var newOrder = inserts
-               .Concat(usedItems.Where(x => !insertIds.Contains(x.Id)))
-               .ToFrozenSet();
+                .Concat(usedItems.Where(x => !insertIds.Contains(x.Id)))
+                .ToFrozenSet();
 
             foreach (var newItem in newOrder)
             {
@@ -791,12 +802,12 @@ public sealed class EfToDoService
         if (request.IsSelectors)
         {
             response.Selectors = roots
-               .Select(x => new ToDoSelector
+                .Select(x => new ToDoSelector
                 {
                     Item = x.ToToDoShort(),
                     Children = GetToDoSelectorItems(items, x.Id).ToArray(),
                 })
-               .ToArray();
+                .ToArray();
         }
 
         if (request.ToStringIds.Length != 0)
@@ -810,11 +821,7 @@ public sealed class EfToDoService
                     ToDoItemToString(
                         dictionary,
                         fullDictionary,
-                        new()
-                        {
-                            Id = id,
-                            Statuses = item.Statuses,
-                        },
+                        new() { Id = id, Statuses = item.Statuses },
                         0,
                         builder,
                         _gaiaValues.Offset
@@ -829,9 +836,9 @@ public sealed class EfToDoService
         {
             response.CurrentActive.IsResponse = true;
             var rootsFullItems = roots
-               .Select(i => GetFullItem(dictionary, fullDictionary, i, _gaiaValues.Offset))
-               .OrderBy(x => x.Parameters.OrderIndex)
-               .ToArray();
+                .Select(i => GetFullItem(dictionary, fullDictionary, i, _gaiaValues.Offset))
+                .OrderBy(x => x.Parameters.OrderIndex)
+                .ToArray();
 
             foreach (var rootsFullItem in rootsFullItems)
             {
@@ -861,18 +868,18 @@ public sealed class EfToDoService
         if (request.IsFavorites)
         {
             response.Favorites = dictionary
-               .Where(x => x.Value.IsFavorite)
-               .ToArray()
-               .Select(x => GetFullItem(dictionary, fullDictionary, x.Value, _gaiaValues.Offset))
-               .ToArray();
+                .Where(x => x.Value.IsFavorite)
+                .ToArray()
+                .Select(x => GetFullItem(dictionary, fullDictionary, x.Value, _gaiaValues.Offset))
+                .ToArray();
         }
 
         if (request.IsBookmarks)
         {
             response.Bookmarks = dictionary
-               .Where(x => x.Value.IsBookmark)
-               .Select(x => x.Value.ToToDoShort())
-               .ToArray();
+                .Where(x => x.Value.IsBookmark)
+                .Select(x => x.Value.ToToDoShort())
+                .ToArray();
         }
 
         if (request.ChildrenIds.Length != 0)
@@ -882,12 +889,12 @@ public sealed class EfToDoService
                 response.Children.Add(
                     id,
                     dictionary
-                       .Values.Where(x => x.ParentId == id)
-                       .ToArray()
-                       .Select(item =>
+                        .Values.Where(x => x.ParentId == id)
+                        .ToArray()
+                        .Select(item =>
                             GetFullItem(dictionary, fullDictionary, item, _gaiaValues.Offset)
                         )
-                       .ToArray()
+                        .ToArray()
                 );
             }
         }
@@ -905,7 +912,7 @@ public sealed class EfToDoService
                             new(),
                             _gaiaValues.Offset
                         )
-                       .ToArray()
+                        .ToArray()
                 );
             }
         }
@@ -915,19 +922,19 @@ public sealed class EfToDoService
         if (!isEmptySearchText || request.Search.Types.Length != 0)
         {
             response.Search = dictionary
-               .Values.Where(x =>
+                .Values.Where(x =>
                     isEmptySearchText
-                 || x.Name.Contains(
+                    || x.Name.Contains(
                         request.Search.SearchText,
                         StringComparison.InvariantCultureIgnoreCase
                     )
                 )
-               .Where(x =>
+                .Where(x =>
                     request.Search.Types.Length == 0 || request.Search.Types.Contains(x.Type)
                 )
-               .ToArray()
-               .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
-               .ToArray();
+                .ToArray()
+                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+                .ToArray();
         }
 
         if (request.ParentIds.Length != 0)
@@ -943,39 +950,39 @@ public sealed class EfToDoService
             var today = DateTimeOffset.UtcNow.Add(_gaiaValues.Offset).Date.ToDateOnly();
 
             response.Today = dictionary
-               .Values.Where(x =>
-                    x is { Type: ToDoType.Periodicity or ToDoType.PeriodicityOffset, }
-                 && (
-                        x.DueDate <= today
-                     || x.RemindDaysBefore != 0
-                     && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
-                    )
-                 || x is { Type: ToDoType.FixedDate, IsCompleted: false, }
-                 && (
-                        x.DueDate <= today
-                     || x.RemindDaysBefore != 0
-                     && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
-                    )
+                .Values.Where(x =>
+                    x is { Type: ToDoType.Periodicity or ToDoType.PeriodicityOffset }
+                        && (
+                            x.DueDate <= today
+                            || x.RemindDaysBefore != 0
+                                && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
+                        )
+                    || x is { Type: ToDoType.FixedDate, IsCompleted: false }
+                        && (
+                            x.DueDate <= today
+                            || x.RemindDaysBefore != 0
+                                && today >= x.DueDate.AddDays((int)-x.RemindDaysBefore)
+                        )
                 )
-               .ToArray()
-               .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
-               .ToArray();
+                .ToArray()
+                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+                .ToArray();
         }
 
         if (request.IsRoots)
         {
             response.Roots = roots
-               .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
-               .ToArray();
+                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+                .ToArray();
         }
 
         if (request.Items.Length != 0)
         {
             response.Items = request
-               .Items.Select(x =>
+                .Items.Select(x =>
                     GetFullItem(dictionary, fullDictionary, dictionary[x], _gaiaValues.Offset)
                 )
-               .ToArray();
+                .ToArray();
         }
 
         return response;
@@ -1005,9 +1012,9 @@ public sealed class EfToDoService
     )
     {
         var items = allItems
-           .Values.Where(x => x.ParentId == options.Id)
-           .OrderBy(x => x.OrderIndex)
-           .ToArray();
+            .Values.Where(x => x.ParentId == options.Id)
+            .OrderBy(x => x.OrderIndex)
+            .ToArray();
 
         foreach (var item in items)
         {
@@ -1025,11 +1032,7 @@ public sealed class EfToDoService
             ToDoItemToString(
                 allItems,
                 fullToDoItems,
-                new()
-                {
-                    Id = item.Id,
-                    Statuses = options.Statuses,
-                },
+                new() { Id = item.Id, Statuses = options.Statuses },
                 (ushort)(level + 1),
                 builder,
                 offset
@@ -1096,9 +1099,9 @@ public sealed class EfToDoService
         }
 
         var entities = allItems
-           .Values.Where(x => x.ParentId == entity.Id)
-           .OrderBy(x => x.OrderIndex)
-           .ToArray();
+            .Values.Where(x => x.ParentId == entity.Id)
+            .OrderBy(x => x.OrderIndex)
+            .ToArray();
 
         if (entities.Length == 0)
         {
