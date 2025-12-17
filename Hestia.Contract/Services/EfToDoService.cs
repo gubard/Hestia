@@ -988,15 +988,19 @@ public sealed class EfToDoService
         return response;
     }
 
-    private List<ToDoSelector> GetToDoSelectorItems(ToDoEntity[] items, Guid id)
+    private ToDoSelector[] GetToDoSelectorItems(ToDoEntity[] items, Guid id)
     {
         var children = items.Where(x => x.ParentId == id).OrderBy(x => x.OrderIndex).ToArray();
 
-        var result = new List<ToDoSelector>();
+        var result = new ToDoSelector[children.Length];
 
         for (var i = 0; i < children.Length; i++)
         {
-            result.AddRange(GetToDoSelectorItems(items, children[i].Id));
+            result[i] = new()
+            {
+                Item = children[i].ToToDoShort(),
+                Children = GetToDoSelectorItems(items, children[i].Id),
+            };
         }
 
         return result;

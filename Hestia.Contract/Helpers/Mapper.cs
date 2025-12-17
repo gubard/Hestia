@@ -129,20 +129,14 @@ public static class Mapper
 
     public static DayOfYear[] GetDaysOfYear(this ToDoEntity entity)
     {
-        if (entity.AnnuallyDays == "1")
+        if (entity.AnnuallyDays.IsNullOrWhiteSpace() || uint.TryParse(entity.AnnuallyDays, out _))
         {
-            return
-            [
-                new()
-                {
-                    Day = 1,
-                    Month = Month.January
-                }
-            ];
+            return [new() { Day = 1, Month = Month.January }];
         }
 
         return entity
             .AnnuallyDays.Split(";")
+            .Where(x => !uint.TryParse(x, out _))
             .Select(x => x.Split('.'))
             .Select(x => new DayOfYear { Day = byte.Parse(x[1]), Month = Enum.Parse<Month>(x[0]) })
             .ToArray();
@@ -150,11 +144,21 @@ public static class Mapper
 
     public static int[] GetDaysOfMonth(this ToDoEntity entity)
     {
+        if (entity.MonthlyDays.IsNullOrWhiteSpace())
+        {
+            return [1];
+        }
+
         return entity.MonthlyDays.Split(";").Select(int.Parse).ToArray();
     }
 
     public static DayOfWeek[] GetDaysOfWeek(this ToDoEntity entity)
     {
+        if (entity.WeeklyDays.IsNullOrWhiteSpace() || uint.TryParse(entity.WeeklyDays, out _))
+        {
+            return [DayOfWeek.Monday];
+        }
+
         return entity.WeeklyDays.Split(";").Select(Enum.Parse<DayOfWeek>).ToArray();
     }
 
