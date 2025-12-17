@@ -143,7 +143,7 @@ public sealed class EfToDoService
         return response;
     }
 
-    public void RandomizeChildrenOrderIndex(
+    private void RandomizeChildrenOrderIndex(
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
         List<EditToDoEntity> editEntities

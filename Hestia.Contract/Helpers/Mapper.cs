@@ -129,6 +129,18 @@ public static class Mapper
 
     public static DayOfYear[] GetDaysOfYear(this ToDoEntity entity)
     {
+        if (entity.AnnuallyDays == "1")
+        {
+            return
+            [
+                new()
+                {
+                    Day = 1,
+                    Month = Month.January
+                }
+            ];
+        }
+
         return entity
             .AnnuallyDays.Split(";")
             .Select(x => x.Split('.'))
