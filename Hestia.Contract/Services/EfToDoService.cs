@@ -593,7 +593,7 @@ public sealed class EfToDoService
             return ValueTask.CompletedTask;
         }
 
-        return ToDoEntity.DeleteEntitiesAsync(DbContext, _gaiaValues.UserId.ToString(), ct, ids);
+        return ToDoEntity.DeleteEntitiesAsync(DbContext, _gaiaValues.UserId.ToString(), ids, ct);
     }
 
     private void Delete(Guid[] ids)
@@ -787,8 +787,8 @@ public sealed class EfToDoService
         await ToDoEntity.AddEntitiesAsync(
             DbContext,
             _gaiaValues.UserId.ToString(),
-            ct,
-            adds.ToArray()
+            adds.ToArray(),
+            ct
         );
     }
 

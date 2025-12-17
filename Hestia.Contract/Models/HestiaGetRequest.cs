@@ -17,5 +17,5 @@ public class HestiaGetRequest : IGetRequest
     public bool IsToday { get; set; }
     public bool IsRoots { get; set; }
     public Guid[] Items { get; set; } = [];
-    public long LastId { get; set; }
+    public long LastId { get; set; } = -1;
 }
