@@ -260,7 +260,7 @@ public sealed class EfToDoService
                 && x.Value.Type == ToDoType.Reference
                 && x.Value.ReferenceId.HasValue
             )
-            .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
+            .Select(x => x.Value.ReferenceId.ThrowIfNullStruct())
             .ToArray();
 
         foreach (var referenceId in referenceIds)
@@ -363,7 +363,7 @@ public sealed class EfToDoService
                 && x.Value.Type == ToDoType.Reference
                 && x.Value.ReferenceId.HasValue
             )
-            .Select(x => x.Value.ReferenceId.ThrowIfNull().Value)
+            .Select(x => x.Value.ReferenceId.ThrowIfNullStruct())
             .ToArray();
 
         foreach (var referenceId in referenceIds)
@@ -459,7 +459,7 @@ public sealed class EfToDoService
                         DueDate = nextDay is not null
                             ? currentDueDate.AddDays((int)nextDay - (int)dayOfWeek)
                             : currentDueDate.AddDays(
-                                7 - (int)dayOfWeek + (int)daysOfWeek.First().ThrowIfNull()
+                                7 - (int)dayOfWeek + (int)daysOfWeek.First().ThrowIfNullStruct()
                             ),
                     }
                 );
@@ -496,7 +496,7 @@ public sealed class EfToDoService
                                 .DueDate.AddMonths(1)
                                 .WithDay(
                                     Math.Min(
-                                        (int)daysOfMonth.First().ThrowIfNull(),
+                                        daysOfMonth.First().ThrowIfNullStruct(),
                                         daysInNextMonth
                                     )
                                 ),

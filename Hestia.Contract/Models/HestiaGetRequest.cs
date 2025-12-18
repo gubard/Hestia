@@ -8,8 +8,8 @@ public class HestiaGetRequest : IGetRequest
     public GetToStringItem[] ToStringIds { get; set; } = [];
     public bool IsCurrentActive { get; set; }
     public Guid[] ActiveItems { get; set; } = [];
-    public bool IsFavorites { get; set; }
-    public bool IsBookmarks { get; set; }
+    public bool IsFavorites { get; set; } = true;
+    public bool IsBookmarks { get; set; } = true;
     public Guid[] ChildrenIds { get; set; } = [];
     public Guid[] LeafIds { get; set; } = [];
     public GetSearch Search { get; set; } = new();
