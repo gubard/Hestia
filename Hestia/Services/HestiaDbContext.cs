@@ -1,4 +1,5 @@
 ﻿using Gaia.Services;
+using Hestia.Contract.Models;
 using Hestia.Contract.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
@@ -12,6 +13,8 @@ public sealed class HestiaDbContext : NestorDbContext, IStaticFactory<DbContextO
 
     public HestiaDbContext(DbContextOptions options)
         : base(options) { }
+
+    public DbSet<ToDoEntity> ToDos { get; set; }
 
     protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
     {
