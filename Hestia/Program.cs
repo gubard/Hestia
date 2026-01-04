@@ -1,5 +1,6 @@
 using Hestia.Contract.Models;
 using Hestia.Contract.Services;
+using Hestia.Services;
 using Zeus.Helpers;
 
 var builder = WebApplication
@@ -10,7 +11,8 @@ var builder = WebApplication
         HestiaGetRequest,
         HestiaPostRequest,
         HestiaGetResponse,
-        HestiaPostResponse
+        HestiaPostResponse,
+        HestiaDbContext
     >("Hestia");
 
 builder.Services.AddTransient<ToDoParametersFillerService>();
