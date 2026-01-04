@@ -7,7 +7,9 @@ using Nestor.Db.Services;
 
 namespace Hestia.Services;
 
-public sealed class HestiaDbContext : NestorDbContext, IStaticFactory<DbContextOptions, DbContext>
+public sealed class HestiaDbContext
+    : NestorDbContext,
+        IStaticFactory<DbContextOptions, NestorDbContext>
 {
     public HestiaDbContext() { }
 
@@ -28,7 +30,7 @@ public sealed class HestiaDbContext : NestorDbContext, IStaticFactory<DbContextO
         modelBuilder.ApplyConfiguration(new ToDoEntityEntityTypeConfiguration());
     }
 
-    public static DbContext Create(DbContextOptions input)
+    public static NestorDbContext Create(DbContextOptions input)
     {
         return new HestiaDbContext(input);
     }

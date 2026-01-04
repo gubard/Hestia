@@ -8,7 +8,6 @@ using Hestia.Contract.Helpers;
 using Hestia.Contract.Models;
 using Microsoft.EntityFrameworkCore;
 using Nestor.Db.Helpers;
-using Nestor.Db.Models;
 using Nestor.Db.Services;
 
 namespace Hestia.Contract.Services;
@@ -31,7 +30,7 @@ public sealed class EfToDoService
     private readonly IToDoValidator _toDoValidator;
 
     public EfToDoService(
-        DbContext dbContext,
+        NestorDbContext dbContext,
         GaiaValues gaiaValues,
         ToDoParametersFillerService toDoParametersFillerService,
         IToDoValidator toDoValidator
@@ -48,14 +47,13 @@ public sealed class EfToDoService
         CancellationToken ct
     )
     {
-        var items = await ToDoEntity.GetEntitiesAsync(DbContext.Set<EventEntity>(), ct);
+        var items = await ToDoEntity.GetEntitiesAsync(DbContext.Events, ct);
         var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
         {
             response.Events = await DbContext
-                .Set<EventEntity>()
-                .Where(x => x.Id > request.LastId)
+                .Events.Where(x => x.Id > request.LastId)
                 .ToArrayAsync(ct);
         }
 
@@ -74,7 +72,7 @@ public sealed class EfToDoService
         Edit(request.Edits, editEntities);
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
 
-        var allItems = (await ToDoEntity.GetEntitiesAsync(DbContext.Set<EventEntity>(), ct))
+        var allItems = (await ToDoEntity.GetEntitiesAsync(DbContext.Events, ct))
             .ToDictionary(x => x.Id)
             .ToFrozenDictionary();
 
@@ -92,8 +90,7 @@ public sealed class EfToDoService
         await DbContext.SaveChangesAsync(ct);
 
         response.Events = await DbContext
-            .Set<EventEntity>()
-            .Where(x => x.Id > request.LastLocalId)
+            .Events.Where(x => x.Id > request.LastLocalId)
             .ToArrayAsync(ct);
 
         return response;
@@ -109,7 +106,7 @@ public sealed class EfToDoService
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
 
         var allItems = ToDoEntity
-            .GetEntities(DbContext.Set<EventEntity>())
+            .GetEntities(DbContext.Events)
             .ToDictionary(x => x.Id)
             .ToFrozenDictionary();
 
@@ -119,25 +116,19 @@ public sealed class EfToDoService
         Delete(request.DeleteIds);
         DbContext.SaveChanges();
 
-        response.Events = DbContext
-            .Set<EventEntity>()
-            .Where(x => x.Id > request.LastLocalId)
-            .ToArray();
+        response.Events = DbContext.Events.Where(x => x.Id > request.LastLocalId).ToArray();
 
         return response;
     }
 
     public override HestiaGetResponse Get(HestiaGetRequest request)
     {
-        var items = ToDoEntity.GetEntities(DbContext.Set<EventEntity>());
+        var items = ToDoEntity.GetEntities(DbContext.Events);
         var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
         {
-            response.Events = DbContext
-                .Set<EventEntity>()
-                .Where(x => x.Id > request.LastId)
-                .ToArray();
+            response.Events = DbContext.Events.Where(x => x.Id > request.LastId).ToArray();
         }
 
         return response;
@@ -618,24 +609,29 @@ public sealed class EfToDoService
         }
 
         var insertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToFrozenSet();
+
         var insertItems = ToDoEntity.GetEntities(
-            DbContext.Set<EventEntity>().Where(x => insertIds.Contains(x.EntityId))
+            DbContext.Events.Where(x => insertIds.Contains(x.EntityId))
         );
+
         var insertItemsDictionary = insertItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var startIds = changeOrders.Select(x => x.StartId).Distinct().ToFrozenSet();
+
         var startItems = ToDoEntity.GetEntities(
-            DbContext.Set<EventEntity>().Where(x => startIds.Contains(x.EntityId))
+            DbContext.Events.Where(x => startIds.Contains(x.EntityId))
         );
+
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var parentItems = startItems.Select(x => x.ParentId).Distinct().ToFrozenSet();
+
         var query = DbContext
-            .Set<EventEntity>()
-            .GetProperty(nameof(ToDoEntity), nameof(ToDoEntity.ParentId))
+            .Events.GetProperty(nameof(ToDoEntity), nameof(ToDoEntity.ParentId))
             .Where(x => parentItems.Contains(x.EntityGuidValue))
             .Select(x => x.EntityId)
             .Distinct();
+
         var siblings = ToDoEntity.GetEntities(
-            DbContext.Set<EventEntity>().Where(x => query.Contains(x.EntityId))
+            DbContext.Events.Where(x => query.Contains(x.EntityId))
         );
 
         for (var index = 0; index < changeOrders.Length; index++)
