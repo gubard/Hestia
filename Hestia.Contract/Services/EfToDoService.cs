@@ -1,4 +1,5 @@
 ﻿using System.Collections.Frozen;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 using Gaia.Helpers;
@@ -42,7 +43,15 @@ public sealed class EfToDoService
         _toDoValidator = toDoValidator;
     }
 
-    public override async ValueTask<HestiaGetResponse> GetAsync(
+    public override ConfiguredValueTaskAwaitable<HestiaGetResponse> GetAsync(
+        HestiaGetRequest request,
+        CancellationToken ct
+    )
+    {
+        return GetCore(request, ct).ConfigureAwait(false);
+    }
+
+    private async ValueTask<HestiaGetResponse> GetCore(
         HestiaGetRequest request,
         CancellationToken ct
     )
@@ -60,7 +69,15 @@ public sealed class EfToDoService
         return response;
     }
 
-    public override async ValueTask<HestiaPostResponse> PostAsync(
+    public override ConfiguredValueTaskAwaitable<HestiaPostResponse> PostAsync(
+        HestiaPostRequest request,
+        CancellationToken ct
+    )
+    {
+        return PostCore(request, ct).ConfigureAwait(false);
+    }
+
+    private async ValueTask<HestiaPostResponse> PostCore(
         HestiaPostRequest request,
         CancellationToken ct
     )
@@ -577,11 +594,11 @@ public sealed class EfToDoService
         }
     }
 
-    private ValueTask DeleteAsync(Guid[] ids, CancellationToken ct)
+    private ConfiguredValueTaskAwaitable DeleteAsync(Guid[] ids, CancellationToken ct)
     {
         if (ids.Length == 0)
         {
-            return ValueTask.CompletedTask;
+            return TaskHelper.ConfiguredCompletedTask;
         }
 
         return ToDoEntity.DeleteEntitiesAsync(DbContext, _gaiaValues.UserId.ToString(), ids, ct);
