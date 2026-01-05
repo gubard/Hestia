@@ -1,4 +1,5 @@
 ﻿using Gaia.Services;
+using Hestia.CompiledModels;
 using Hestia.Contract.Models;
 using Hestia.Contract.Services;
 using Microsoft.EntityFrameworkCore;

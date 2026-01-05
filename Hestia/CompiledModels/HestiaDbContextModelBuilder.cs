@@ -6,12 +6,12 @@ using Microsoft.EntityFrameworkCore.Metadata;
 #pragma warning disable 219, 612, 618
 #nullable disable
 
-namespace Hestia
+namespace Hestia.CompiledModels
 {
     public partial class HestiaDbContextModel
     {
         private HestiaDbContextModel()
-            : base(skipDetectChanges: false, modelId: new Guid("286acc0a-6cd8-4d46-8fbb-dcd3951617ab"), entityTypeCount: 3)
+            : base(skipDetectChanges: false, modelId: new Guid("b7742932-0904-4224-b6d3-a62158070f0f"), entityTypeCount: 3)
         {
         }
 

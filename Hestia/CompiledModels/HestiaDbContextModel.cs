@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata;
 #pragma warning disable 219, 612, 618
 #nullable disable
 
-namespace Hestia
+namespace Hestia.CompiledModels
 {
     [DbContext(typeof(HestiaDbContext))]
     public partial class HestiaDbContextModel : RuntimeModel

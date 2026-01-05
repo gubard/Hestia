@@ -6,7 +6,7 @@ using Hestia.Services;
 using Nestor.Db.Sqlite.Helpers;
 using Zeus.Helpers;
 
-var migration = new Dictionary<long, string>();
+var migration = new Dictionary<int, string>();
 
 foreach (var (key, value) in SqliteMigration.Migrations)
 {

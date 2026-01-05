@@ -4,16 +4,16 @@ namespace Hestia.Contract.Helpers;
 
 public static class HestiaMigration
 {
-    public static readonly FrozenDictionary<long, string> Migrations;
+    public static readonly FrozenDictionary<int, string> Migrations;
 
     static HestiaMigration()
     {
-        Migrations = new Dictionary<long, string>
+        Migrations = new Dictionary<int, string>
         {
             {
-                202601041210,
+                5,
                 @"
-CREATE TABLE IF NOT EXISTS ToDoEntity (
+CREATE TABLE IF NOT EXISTS ToDos (
     Id TEXT PRIMARY KEY NOT NULL,
     Name TEXT NOT NULL CHECK(length(Name) <= 255),
     NormalizeName TEXT NOT NULL CHECK(length(NormalizeName) <= 255),
