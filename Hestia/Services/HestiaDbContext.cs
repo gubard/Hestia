@@ -27,7 +27,7 @@ public sealed class HestiaDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new ToDoEntityEntityTypeConfiguration());
+        modelBuilder.ApplyConfiguration(new ToDoEntityTypeConfiguration());
     }
 
     public static NestorDbContext Create(DbContextOptions input)

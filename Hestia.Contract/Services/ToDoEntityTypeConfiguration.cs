@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Hestia.Contract.Services;
 
-public sealed class ToDoEntityEntityTypeConfiguration : IEntityTypeConfiguration<ToDoEntity>
+public sealed class ToDoEntityTypeConfiguration : IEntityTypeConfiguration<ToDoEntity>
 {
     public void Configure(EntityTypeBuilder<ToDoEntity> builder)
     {
