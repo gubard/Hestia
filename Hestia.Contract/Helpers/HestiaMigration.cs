@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS ToDos (
     ReferenceId TEXT,
     ParentId TEXT,
     -- Optional: Foreign key constraint for self-referencing ParentId
-    FOREIGN KEY (ParentId) REFERENCES ToDoEntities (Id)
+    FOREIGN KEY (ParentId) REFERENCES ToDos (Id)
 );
 "
             },

@@ -22,16 +22,23 @@ public interface IEfToDoService
     : IToDoService,
         IEfService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
-public sealed class EfToDoService
-    : EfService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>,
+public sealed class EfToDoService<TDbContext>
+    : EfService<
+        HestiaGetRequest,
+        HestiaPostRequest,
+        HestiaGetResponse,
+        HestiaPostResponse,
+        TDbContext
+    >,
         IEfToDoService
+    where TDbContext : NestorDbContext, IToDoDbContext
 {
     private readonly GaiaValues _gaiaValues;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
     private readonly IToDoValidator _toDoValidator;
 
     public EfToDoService(
-        NestorDbContext dbContext,
+        TDbContext dbContext,
         GaiaValues gaiaValues,
         ToDoParametersFillerService toDoParametersFillerService,
         IToDoValidator toDoValidator
@@ -56,7 +63,7 @@ public sealed class EfToDoService
         CancellationToken ct
     )
     {
-        var items = await ToDoEntity.GetEntitiesAsync(DbContext.Events, ct);
+        var items = await DbContext.ToDos.ToArrayAsync(ct);
         var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
@@ -70,14 +77,16 @@ public sealed class EfToDoService
     }
 
     public override ConfiguredValueTaskAwaitable<HestiaPostResponse> PostAsync(
+        Guid idempotentId,
         HestiaPostRequest request,
         CancellationToken ct
     )
     {
-        return PostCore(request, ct).ConfigureAwait(false);
+        return PostCore(idempotentId, request, ct).ConfigureAwait(false);
     }
 
     private async ValueTask<HestiaPostResponse> PostCore(
+        Guid idempotentId,
         HestiaPostRequest request,
         CancellationToken ct
     )
@@ -85,13 +94,13 @@ public sealed class EfToDoService
         var response = new HestiaPostResponse();
         Dictionary<Guid, FullToDo> fullDictionary = new();
         var editEntities = new List<EditToDoEntity>();
-        await CreateAsync(response, request.Creates, ct);
+        await CreateAsync(idempotentId, response, request.Creates, ct);
         Edit(request.Edits, editEntities);
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
 
-        var allItems = (await ToDoEntity.GetEntitiesAsync(DbContext.Events, ct))
-            .ToDictionary(x => x.Id)
-            .ToFrozenDictionary();
+        var allItems = (
+            await DbContext.ToDos.ToDictionaryAsync(x => x.Id, ct)
+        ).ToFrozenDictionary();
 
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
@@ -99,11 +108,12 @@ public sealed class EfToDoService
         await ToDoEntity.EditEntitiesAsync(
             DbContext,
             _gaiaValues.UserId.ToString(),
+            idempotentId,
             editEntities.ToArray(),
             ct
         );
 
-        await DeleteAsync(request.DeleteIds, ct);
+        await DeleteAsync(idempotentId, request.DeleteIds, ct);
         await DbContext.SaveChangesAsync(ct);
 
         response.Events = await DbContext
@@ -113,24 +123,26 @@ public sealed class EfToDoService
         return response;
     }
 
-    public override HestiaPostResponse Post(HestiaPostRequest request)
+    public override HestiaPostResponse Post(Guid idempotentId, HestiaPostRequest request)
     {
         var response = new HestiaPostResponse();
         var editEntities = new List<EditToDoEntity>();
         Dictionary<Guid, FullToDo> fullDictionary = new();
-        Create(response, request.Creates);
+        Create(idempotentId, response, request.Creates);
         Edit(request.Edits, editEntities);
         ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
-
-        var allItems = ToDoEntity
-            .GetEntities(DbContext.Events)
-            .ToDictionary(x => x.Id)
-            .ToFrozenDictionary();
-
+        var allItems = DbContext.ToDos.ToDictionary(x => x.Id).ToFrozenDictionary();
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
-        ToDoEntity.EditEntities(DbContext, _gaiaValues.UserId.ToString(), editEntities.ToArray());
-        Delete(request.DeleteIds);
+
+        ToDoEntity.EditEntities(
+            DbContext,
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            editEntities.ToArray()
+        );
+
+        Delete(idempotentId, request.DeleteIds);
         DbContext.SaveChanges();
 
         response.Events = DbContext.Events.Where(x => x.Id > request.LastLocalId).ToArray();
@@ -140,7 +152,7 @@ public sealed class EfToDoService
 
     public override HestiaGetResponse Get(HestiaGetRequest request)
     {
-        var items = ToDoEntity.GetEntities(DbContext.Events);
+        var items = DbContext.ToDos.ToArray();
         var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
@@ -594,24 +606,34 @@ public sealed class EfToDoService
         }
     }
 
-    private ConfiguredValueTaskAwaitable DeleteAsync(Guid[] ids, CancellationToken ct)
+    private ConfiguredValueTaskAwaitable DeleteAsync(
+        Guid idempotentId,
+        Guid[] ids,
+        CancellationToken ct
+    )
     {
         if (ids.Length == 0)
         {
             return TaskHelper.ConfiguredCompletedTask;
         }
 
-        return ToDoEntity.DeleteEntitiesAsync(DbContext, _gaiaValues.UserId.ToString(), ids, ct);
+        return ToDoEntity.DeleteEntitiesAsync(
+            DbContext,
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            ids,
+            ct
+        );
     }
 
-    private void Delete(Guid[] ids)
+    private void Delete(Guid idempotentId, Guid[] ids)
     {
         if (ids.Length == 0)
         {
             return;
         }
 
-        ToDoEntity.DeleteEntities(DbContext, _gaiaValues.UserId.ToString(), ids);
+        ToDoEntity.DeleteEntities(DbContext, _gaiaValues.UserId.ToString(), idempotentId, ids);
     }
 
     private void ChangeOrder(
@@ -626,30 +648,13 @@ public sealed class EfToDoService
         }
 
         var insertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToFrozenSet();
-
-        var insertItems = ToDoEntity.GetEntities(
-            DbContext.Events.Where(x => insertIds.Contains(x.EntityId))
-        );
-
+        var insertItems = DbContext.ToDos.Where(x => insertIds.Contains(x.Id));
         var insertItemsDictionary = insertItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var startIds = changeOrders.Select(x => x.StartId).Distinct().ToFrozenSet();
-
-        var startItems = ToDoEntity.GetEntities(
-            DbContext.Events.Where(x => startIds.Contains(x.EntityId))
-        );
-
+        var startItems = DbContext.ToDos.Where(x => startIds.Contains(x.Id));
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var parentItems = startItems.Select(x => x.ParentId).Distinct().ToFrozenSet();
-
-        var query = DbContext
-            .Events.GetProperty(nameof(ToDoEntity), nameof(ToDoEntity.ParentId))
-            .Where(x => parentItems.Contains(x.EntityGuidValue))
-            .Select(x => x.EntityId)
-            .Distinct();
-
-        var siblings = ToDoEntity.GetEntities(
-            DbContext.Events.Where(x => query.Contains(x.EntityId))
-        );
+        var siblings = DbContext.ToDos.Where(x => parentItems.Contains(x.Id));
 
         for (var index = 0; index < changeOrders.Length; index++)
         {
@@ -698,7 +703,7 @@ public sealed class EfToDoService
         }
     }
 
-    private void Create(HestiaPostResponse response, ShortToDo[] creates)
+    private void Create(Guid idempotentId, HestiaPostResponse response, ShortToDo[] creates)
     {
         if (creates.Length == 0)
         {
@@ -744,10 +749,16 @@ public sealed class EfToDoService
             adds.Add(create.ToToDoEntity());
         }
 
-        ToDoEntity.AddEntities(DbContext, _gaiaValues.UserId.ToString(), adds.ToArray());
+        ToDoEntity.AddEntities(
+            DbContext,
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            adds.ToArray()
+        );
     }
 
     private async ValueTask CreateAsync(
+        Guid idempotentId,
         HestiaPostResponse response,
         ShortToDo[] creates,
         CancellationToken ct
@@ -800,6 +811,7 @@ public sealed class EfToDoService
         await ToDoEntity.AddEntitiesAsync(
             DbContext,
             _gaiaValues.UserId.ToString(),
+            idempotentId,
             adds.ToArray(),
             ct
         );

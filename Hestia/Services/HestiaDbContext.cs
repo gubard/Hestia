@@ -10,7 +10,8 @@ namespace Hestia.Services;
 
 public sealed class HestiaDbContext
     : NestorDbContext,
-        IStaticFactory<DbContextOptions, NestorDbContext>
+        IStaticFactory<DbContextOptions, NestorDbContext>,
+        IToDoDbContext
 {
     public HestiaDbContext() { }
 
