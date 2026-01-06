@@ -1,7 +1,6 @@
 ﻿using Gaia.Services;
 using Hestia.CompiledModels;
 using Hestia.Contract.Models;
-using Hestia.Contract.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Nestor.Db.Services;
@@ -23,12 +22,6 @@ public sealed class HestiaDbContext
     {
         base.OnConfiguring(optionsBuilder);
         optionsBuilder.UseModel(HestiaDbContextModel.Instance);
-    }
-
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
-    {
-        base.OnModelCreating(modelBuilder);
-        modelBuilder.ApplyConfiguration(new ToDoEntityTypeConfiguration());
     }
 
     public static NestorDbContext Create(DbContextOptions input)
