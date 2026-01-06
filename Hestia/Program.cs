@@ -33,6 +33,7 @@ var builder = WebApplication
 builder.Services.AddTransient<ToDoParametersFillerService>();
 builder.Services.AddTransient<IToDoValidator, ToDoValidator>();
 var app = builder.Build();
+
 await app.RunZeusApp<
     IToDoService,
     HestiaGetRequest,
