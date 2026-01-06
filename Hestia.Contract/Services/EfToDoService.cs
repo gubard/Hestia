@@ -8,7 +8,6 @@ using Gaia.Services;
 using Hestia.Contract.Helpers;
 using Hestia.Contract.Models;
 using Microsoft.EntityFrameworkCore;
-using Nestor.Db.Helpers;
 using Nestor.Db.Services;
 
 namespace Hestia.Contract.Services;
