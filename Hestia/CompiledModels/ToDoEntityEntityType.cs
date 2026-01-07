@@ -450,6 +450,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             dueDate.TypeMapping = SqliteDateOnlyTypeMapping.Default;
+            dueDate.SetComparer(new ValueComparer<DateOnly>(
+                bool (DateOnly c1, DateOnly c2) => c1 == c2,
+                int (DateOnly c) => ((object)c).GetHashCode(),
+                DateOnly (DateOnly c) => c));
 
             var icon = runtimeEntityType.AddProperty(
                 "Icon",

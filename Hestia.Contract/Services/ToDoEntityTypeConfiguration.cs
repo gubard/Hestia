@@ -30,6 +30,12 @@ public sealed class ToDoEntityTypeConfiguration : IEntityTypeConfiguration<ToDoE
                 new ValueComparer<Guid?>((c1, c2) => c1 == c2, c => c.GetHashCode(), c => c)
             );
 
+        builder
+            .Property(e => e.DueDate)
+            .Metadata.SetValueComparer(
+                new ValueComparer<DateOnly>((c1, c2) => c1 == c2, c => c.GetHashCode(), c => c)
+            );
+
         builder.Property(e => e.Name).HasMaxLength(255);
         builder.Property(e => e.NormalizeName).HasMaxLength(255);
         builder.Property(e => e.Description).HasMaxLength(10_000);
