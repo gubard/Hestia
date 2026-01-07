@@ -715,7 +715,7 @@ namespace Hestia.CompiledModels
             lastCompleted.TypeMapping = SqliteDateTimeOffsetTypeMapping.Default;
             lastCompleted.SetComparer(new ValueComparer<DateTimeOffset?>(
                 bool (DateTimeOffset? c1, DateTimeOffset? c2) => c1 == null && c2 == null || c1 != null && ((object)c1).Equals(((object)(c2))),
-                int (DateTimeOffset? c) => ((object)c).GetHashCode(),
+                int (DateTimeOffset? c) => (c == null ? 0 : ((object)c).GetHashCode()),
                 DateTimeOffset? (DateTimeOffset? c) => c));
 
             var link = runtimeEntityType.AddProperty(
@@ -984,7 +984,7 @@ namespace Hestia.CompiledModels
             parentId.TypeMapping = SqliteGuidTypeMapping.Default;
             parentId.SetComparer(new ValueComparer<Guid?>(
                 bool (Guid? c1, Guid? c2) => c1 == c2,
-                int (Guid? c) => ((object)c).GetHashCode(),
+                int (Guid? c) => (c == null ? 0 : ((object)c).GetHashCode()),
                 Guid? (Guid? c) => c));
 
             var referenceId = runtimeEntityType.AddProperty(
@@ -1022,7 +1022,7 @@ namespace Hestia.CompiledModels
             referenceId.TypeMapping = SqliteGuidTypeMapping.Default;
             referenceId.SetComparer(new ValueComparer<Guid?>(
                 bool (Guid? c1, Guid? c2) => c1 == c2,
-                int (Guid? c) => ((object)c).GetHashCode(),
+                int (Guid? c) => (c == null ? 0 : ((object)c).GetHashCode()),
                 Guid? (Guid? c) => c));
 
             var remindDaysBefore = runtimeEntityType.AddProperty(

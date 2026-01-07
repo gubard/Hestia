@@ -21,13 +21,21 @@ public sealed class ToDoEntityTypeConfiguration : IEntityTypeConfiguration<ToDoE
         builder
             .Property(e => e.ReferenceId)
             .Metadata.SetValueComparer(
-                new ValueComparer<Guid?>((c1, c2) => c1 == c2, c => c.GetHashCode(), c => c)
+                new ValueComparer<Guid?>(
+                    (c1, c2) => c1 == c2,
+                    c => c == null ? 0 : c.GetHashCode(),
+                    c => c
+                )
             );
 
         builder
             .Property(e => e.ParentId)
             .Metadata.SetValueComparer(
-                new ValueComparer<Guid?>((c1, c2) => c1 == c2, c => c.GetHashCode(), c => c)
+                new ValueComparer<Guid?>(
+                    (c1, c2) => c1 == c2,
+                    c => c == null ? 0 : c.GetHashCode(),
+                    c => c
+                )
             );
 
         builder
@@ -56,7 +64,7 @@ public sealed class ToDoEntityTypeConfiguration : IEntityTypeConfiguration<ToDoE
             .Metadata.SetValueComparer(
                 new ValueComparer<DateTimeOffset?>(
                     (c1, c2) => c1 == null && c2 == null || c1 != null && c1.Equals(c2),
-                    c => c.GetHashCode(),
+                    c => c == null ? 0 : c.GetHashCode(),
                     c => c
                 )
             );
