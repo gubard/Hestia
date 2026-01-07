@@ -197,7 +197,7 @@ namespace Hestia.CompiledModels
                 sentinel: new DateTimeOffset(new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)));
             createdDateTime.SetGetter(
                 DateTimeOffset (ToDoEntity instance) => ToDoEntityUnsafeAccessors.CreatedDateTime(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.CreatedDateTime(instance).EqualsExact(default(DateTimeOffset)));
+                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.CreatedDateTime(instance).Equals(default(DateTimeOffset)));
             createdDateTime.SetSetter(
                 ToDoEntity (ToDoEntity instance, DateTimeOffset value) =>
                 {
@@ -222,6 +222,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             createdDateTime.TypeMapping = SqliteDateTimeOffsetTypeMapping.Default;
+            createdDateTime.SetComparer(new ValueComparer<DateTimeOffset>(
+                bool (DateTimeOffset c1, DateTimeOffset c2) => c1.Equals(c2),
+                int (DateTimeOffset c) => ((object)c).GetHashCode(),
+                DateTimeOffset (DateTimeOffset c) => c));
 
             var currentCircleOrderIndex = runtimeEntityType.AddProperty(
                 "CurrentCircleOrderIndex",
@@ -701,8 +705,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             lastCompleted.TypeMapping = SqliteDateTimeOffsetTypeMapping.Default;
-            lastCompleted.SetComparer(new NullableValueComparer<DateTimeOffset>(lastCompleted.TypeMapping.Comparer));
-            lastCompleted.SetKeyComparer(new NullableValueComparer<DateTimeOffset>(lastCompleted.TypeMapping.KeyComparer));
+            lastCompleted.SetComparer(new ValueComparer<DateTimeOffset?>(
+                bool (DateTimeOffset? c1, DateTimeOffset? c2) => c1 == null && c2 == null || c1 != null && ((object)c1).Equals(((object)(c2))),
+                int (DateTimeOffset? c) => ((object)c).GetHashCode(),
+                DateTimeOffset? (DateTimeOffset? c) => c));
 
             var link = runtimeEntityType.AddProperty(
                 "Link",
