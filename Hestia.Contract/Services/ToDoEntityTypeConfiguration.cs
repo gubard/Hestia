@@ -10,7 +10,7 @@ public sealed class ToDoEntityTypeConfiguration : IEntityTypeConfiguration<ToDoE
     public void Configure(EntityTypeBuilder<ToDoEntity> builder)
     {
         builder.HasKey(e => e.Id);
-        builder.Property(e => e.Id).ValueGeneratedNever().SetComparerStruct();
+        builder.Property(e => e.Id).SetComparerStruct();
         builder.Property(e => e.DueDate).SetComparerStruct();
         builder.Property(e => e.Name).HasMaxLength(255).SetComparerClass();
         builder.Property(e => e.NormalizeName).HasMaxLength(255).SetComparerClass();

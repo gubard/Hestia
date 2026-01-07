@@ -35,6 +35,7 @@ namespace Hestia.CompiledModels
                 typeof(Guid),
                 propertyInfo: typeof(ToDoEntity).GetProperty("Id", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly),
                 fieldInfo: typeof(ToDoEntity).GetField("<Id>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly),
+                valueGenerated: ValueGenerated.OnAdd,
                 afterSaveBehavior: PropertySaveBehavior.Throw,
                 sentinel: new Guid("00000000-0000-0000-0000-000000000000"));
             id.SetGetter(
@@ -53,7 +54,7 @@ namespace Hestia.CompiledModels
                     return instance;
                 });
             id.SetAccessors(
-                Guid (IInternalEntry entry) => ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity))),
+                Guid (IInternalEntry entry) => (entry.FlaggedAsStoreGenerated(0) ? entry.ReadStoreGeneratedValue<Guid>(0) : (entry.FlaggedAsTemporary(0) && ((object)ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity)))).Equals(((object)(new Guid("00000000-0000-0000-0000-000000000000")))) ? entry.ReadTemporaryValue<Guid>(0) : ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity))))),
                 Guid (IInternalEntry entry) => ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity))),
                 Guid (IInternalEntry entry) => entry.ReadOriginalValue<Guid>(id, 0),
                 Guid (IInternalEntry entry) => ((InternalEntityEntry)(entry)).ReadRelationshipSnapshotValue<Guid>(id, 0));
@@ -62,7 +63,7 @@ namespace Hestia.CompiledModels
                 originalValueIndex: 0,
                 shadowIndex: -1,
                 relationshipIndex: 0,
-                storeGenerationIndex: -1);
+                storeGenerationIndex: 0);
             id.TypeMapping = SqliteGuidTypeMapping.Default;
             id.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(id));
             id.SetComparer(new ValueComparer<Guid>(
@@ -1458,9 +1459,9 @@ namespace Hestia.CompiledModels
                     return ((ISnapshot)(new Snapshot<Guid, string, ChildrenCompletionType, string, DateTimeOffset, uint, ushort, string, DescriptionType, DateOnly, string, bool, bool, bool, bool, DateTimeOffset?, string, string, ushort, string, string, uint, Guid?, Guid?, uint, ToDoType, TypeOfPeriodicity, string, ushort, ushort>(((ValueComparer<Guid>)(((IProperty)id).GetValueComparer())).Snapshot(source.GetCurrentValue<Guid>(id)), (source.GetCurrentValue<string>(annuallyDays) == null ? null : ((ValueComparer<string>)(((IProperty)annuallyDays).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(annuallyDays))), ((ValueComparer<ChildrenCompletionType>)(((IProperty)childrenCompletionType).GetValueComparer())).Snapshot(source.GetCurrentValue<ChildrenCompletionType>(childrenCompletionType)), (source.GetCurrentValue<string>(color) == null ? null : ((ValueComparer<string>)(((IProperty)color).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(color))), ((ValueComparer<DateTimeOffset>)(((IProperty)createdDateTime).GetValueComparer())).Snapshot(source.GetCurrentValue<DateTimeOffset>(createdDateTime)), ((ValueComparer<uint>)(((IProperty)currentCircleOrderIndex).GetValueComparer())).Snapshot(source.GetCurrentValue<uint>(currentCircleOrderIndex)), ((ValueComparer<ushort>)(((IProperty)daysOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(daysOffset)), (source.GetCurrentValue<string>(description) == null ? null : ((ValueComparer<string>)(((IProperty)description).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(description))), ((ValueComparer<DescriptionType>)(((IProperty)descriptionType).GetValueComparer())).Snapshot(source.GetCurrentValue<DescriptionType>(descriptionType)), ((ValueComparer<DateOnly>)(((IProperty)dueDate).GetValueComparer())).Snapshot(source.GetCurrentValue<DateOnly>(dueDate)), (source.GetCurrentValue<string>(icon) == null ? null : ((ValueComparer<string>)(((IProperty)icon).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(icon))), ((ValueComparer<bool>)(((IProperty)isBookmark).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isBookmark)), ((ValueComparer<bool>)(((IProperty)isCompleted).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isCompleted)), ((ValueComparer<bool>)(((IProperty)isFavorite).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isFavorite)), ((ValueComparer<bool>)(((IProperty)isRequiredCompleteInDueDate).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isRequiredCompleteInDueDate)), (source.GetCurrentValue<DateTimeOffset?>(lastCompleted) == null ? null : ((ValueComparer<DateTimeOffset?>)(((IProperty)lastCompleted).GetValueComparer())).Snapshot(source.GetCurrentValue<DateTimeOffset?>(lastCompleted))), (source.GetCurrentValue<string>(link) == null ? null : ((ValueComparer<string>)(((IProperty)link).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(link))), (source.GetCurrentValue<string>(monthlyDays) == null ? null : ((ValueComparer<string>)(((IProperty)monthlyDays).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(monthlyDays))), ((ValueComparer<ushort>)(((IProperty)monthsOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(monthsOffset)), (source.GetCurrentValue<string>(name) == null ? null : ((ValueComparer<string>)(((IProperty)name).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(name))), (source.GetCurrentValue<string>(normalizeName) == null ? null : ((ValueComparer<string>)(((IProperty)normalizeName).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(normalizeName))), ((ValueComparer<uint>)(((IProperty)orderIndex).GetValueComparer())).Snapshot(source.GetCurrentValue<uint>(orderIndex)), (source.GetCurrentValue<Guid?>(parentId) == null ? null : ((ValueComparer<Guid?>)(((IProperty)parentId).GetValueComparer())).Snapshot(source.GetCurrentValue<Guid?>(parentId))), (source.GetCurrentValue<Guid?>(referenceId) == null ? null : ((ValueComparer<Guid?>)(((IProperty)referenceId).GetValueComparer())).Snapshot(source.GetCurrentValue<Guid?>(referenceId))), ((ValueComparer<uint>)(((IProperty)remindDaysBefore).GetValueComparer())).Snapshot(source.GetCurrentValue<uint>(remindDaysBefore)), ((ValueComparer<ToDoType>)(((IProperty)type).GetValueComparer())).Snapshot(source.GetCurrentValue<ToDoType>(type)), ((ValueComparer<TypeOfPeriodicity>)(((IProperty)typeOfPeriodicity).GetValueComparer())).Snapshot(source.GetCurrentValue<TypeOfPeriodicity>(typeOfPeriodicity)), (source.GetCurrentValue<string>(weeklyDays) == null ? null : ((ValueComparer<string>)(((IProperty)weeklyDays).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(weeklyDays))), ((ValueComparer<ushort>)(((IProperty)weeksOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(weeksOffset)), ((ValueComparer<ushort>)(((IProperty)yearsOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(yearsOffset)))));
                 });
             runtimeEntityType.SetStoreGeneratedValuesFactory(
-                ISnapshot () => Snapshot.Empty);
+                ISnapshot () => ((ISnapshot)(new Snapshot<Guid>(((ValueComparer<Guid>)(((IProperty)id).GetValueComparer())).Snapshot(default(Guid))))));
             runtimeEntityType.SetTemporaryValuesFactory(
-                ISnapshot (IInternalEntry source) => Snapshot.Empty);
+                ISnapshot (IInternalEntry source) => ((ISnapshot)(new Snapshot<Guid>(default(Guid)))));
             runtimeEntityType.SetShadowValuesFactory(
                 ISnapshot (IDictionary<string, object> source) => Snapshot.Empty);
             runtimeEntityType.SetEmptyShadowValuesFactory(
@@ -1479,7 +1480,7 @@ namespace Hestia.CompiledModels
                 originalValueCount: 30,
                 shadowCount: 0,
                 relationshipCount: 1,
-                storeGeneratedCount: 0));
+                storeGeneratedCount: 1));
             runtimeEntityType.AddAnnotation("Relational:FunctionName", null);
             runtimeEntityType.AddAnnotation("Relational:Schema", null);
             runtimeEntityType.AddAnnotation("Relational:SqlQuery", null);

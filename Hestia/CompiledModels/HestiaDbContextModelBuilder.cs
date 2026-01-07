@@ -15,7 +15,7 @@ namespace Hestia.CompiledModels
     public partial class HestiaDbContextModel
     {
         private HestiaDbContextModel()
-            : base(skipDetectChanges: false, modelId: new Guid("181e0a1a-a410-4ee6-acb1-901d298b693d"), entityTypeCount: 3)
+            : base(skipDetectChanges: false, modelId: new Guid("3244f2bb-41f5-4f49-8980-417302ce96e5"), entityTypeCount: 3)
         {
         }
 
