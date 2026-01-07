@@ -15,7 +15,7 @@ namespace Hestia.CompiledModels
     public partial class HestiaDbContextModel
     {
         private HestiaDbContextModel()
-            : base(skipDetectChanges: false, modelId: new Guid("f869a684-5d27-44f2-a15c-a8e33c4a5316"), entityTypeCount: 3)
+            : base(skipDetectChanges: false, modelId: new Guid("a39f1fc7-b771-4e8c-921c-717611bcc0a4"), entityTypeCount: 3)
         {
         }
 
@@ -457,7 +457,7 @@ namespace Hestia.CompiledModels
             idColumn0.Accessors = ColumnAccessorsFactory.CreateGeneric<long>(idColumn0);
             var createdAtColumn = new Column("CreatedAt", "TEXT", eventsTable);
             eventsTable.Columns.Add("CreatedAt", createdAtColumn);
-            createdAtColumn.Accessors = ColumnAccessorsFactory.CreateGeneric<DateTime>(createdAtColumn);
+            createdAtColumn.Accessors = ColumnAccessorsFactory.CreateGeneric<DateTimeOffset>(createdAtColumn);
             var entityBooleanValueColumn = new Column("EntityBooleanValue", "INTEGER", eventsTable)
             {
                 IsNullable = true
