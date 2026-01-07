@@ -10,7 +10,26 @@ public sealed class ToDoEntityTypeConfiguration : IEntityTypeConfiguration<ToDoE
     public void Configure(EntityTypeBuilder<ToDoEntity> builder)
     {
         builder.HasKey(e => e.Id);
-        builder.Property(e => e.Id).ValueGeneratedOnAdd();
+
+        builder
+            .Property(e => e.Id)
+            .ValueGeneratedOnAdd()
+            .Metadata.SetValueComparer(
+                new ValueComparer<Guid>((c1, c2) => c1 == c2, c => c.GetHashCode(), c => c)
+            );
+
+        builder
+            .Property(e => e.ReferenceId)
+            .Metadata.SetValueComparer(
+                new ValueComparer<Guid?>((c1, c2) => c1 == c2, c => c.GetHashCode(), c => c)
+            );
+
+        builder
+            .Property(e => e.ParentId)
+            .Metadata.SetValueComparer(
+                new ValueComparer<Guid?>((c1, c2) => c1 == c2, c => c.GetHashCode(), c => c)
+            );
+
         builder.Property(e => e.Name).HasMaxLength(255);
         builder.Property(e => e.NormalizeName).HasMaxLength(255);
         builder.Property(e => e.Description).HasMaxLength(10_000);

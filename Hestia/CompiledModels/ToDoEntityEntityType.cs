@@ -66,6 +66,10 @@ namespace Hestia.CompiledModels
                 storeGenerationIndex: 0);
             id.TypeMapping = SqliteGuidTypeMapping.Default;
             id.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(id));
+            id.SetComparer(new ValueComparer<Guid>(
+                bool (Guid c1, Guid c2) => c1 == c2,
+                int (Guid c) => ((object)c).GetHashCode(),
+                Guid (Guid c) => c));
 
             var annuallyDays = runtimeEntityType.AddProperty(
                 "AnnuallyDays",
@@ -974,8 +978,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             parentId.TypeMapping = SqliteGuidTypeMapping.Default;
-            parentId.SetComparer(new NullableValueComparer<Guid>(parentId.TypeMapping.Comparer));
-            parentId.SetKeyComparer(new NullableValueComparer<Guid>(parentId.TypeMapping.KeyComparer));
+            parentId.SetComparer(new ValueComparer<Guid?>(
+                bool (Guid? c1, Guid? c2) => c1 == c2,
+                int (Guid? c) => ((object)c).GetHashCode(),
+                Guid? (Guid? c) => c));
 
             var referenceId = runtimeEntityType.AddProperty(
                 "ReferenceId",
@@ -1010,8 +1016,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             referenceId.TypeMapping = SqliteGuidTypeMapping.Default;
-            referenceId.SetComparer(new NullableValueComparer<Guid>(referenceId.TypeMapping.Comparer));
-            referenceId.SetKeyComparer(new NullableValueComparer<Guid>(referenceId.TypeMapping.KeyComparer));
+            referenceId.SetComparer(new ValueComparer<Guid?>(
+                bool (Guid? c1, Guid? c2) => c1 == c2,
+                int (Guid? c) => ((object)c).GetHashCode(),
+                Guid? (Guid? c) => c));
 
             var remindDaysBefore = runtimeEntityType.AddProperty(
                 "RemindDaysBefore",
