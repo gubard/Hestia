@@ -35,12 +35,11 @@ namespace Hestia.CompiledModels
                 typeof(Guid),
                 propertyInfo: typeof(ToDoEntity).GetProperty("Id", BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly),
                 fieldInfo: typeof(ToDoEntity).GetField("<Id>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly),
-                valueGenerated: ValueGenerated.OnAdd,
                 afterSaveBehavior: PropertySaveBehavior.Throw,
                 sentinel: new Guid("00000000-0000-0000-0000-000000000000"));
             id.SetGetter(
                 Guid (ToDoEntity instance) => ToDoEntityUnsafeAccessors.Id(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.Id(instance) == new Guid("00000000-0000-0000-0000-000000000000"));
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.Id(instance)).Equals(((object)(new Guid("00000000-0000-0000-0000-000000000000")))));
             id.SetSetter(
                 ToDoEntity (ToDoEntity instance, Guid value) =>
                 {
@@ -54,7 +53,7 @@ namespace Hestia.CompiledModels
                     return instance;
                 });
             id.SetAccessors(
-                Guid (IInternalEntry entry) => (entry.FlaggedAsStoreGenerated(0) ? entry.ReadStoreGeneratedValue<Guid>(0) : (entry.FlaggedAsTemporary(0) && ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity))) == new Guid("00000000-0000-0000-0000-000000000000") ? entry.ReadTemporaryValue<Guid>(0) : ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity))))),
+                Guid (IInternalEntry entry) => ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity))),
                 Guid (IInternalEntry entry) => ToDoEntityUnsafeAccessors.Id(((ToDoEntity)(entry.Entity))),
                 Guid (IInternalEntry entry) => entry.ReadOriginalValue<Guid>(id, 0),
                 Guid (IInternalEntry entry) => ((InternalEntityEntry)(entry)).ReadRelationshipSnapshotValue<Guid>(id, 0));
@@ -63,11 +62,11 @@ namespace Hestia.CompiledModels
                 originalValueIndex: 0,
                 shadowIndex: -1,
                 relationshipIndex: 0,
-                storeGenerationIndex: 0);
+                storeGenerationIndex: -1);
             id.TypeMapping = SqliteGuidTypeMapping.Default;
             id.SetCurrentValueComparer(new EntryCurrentValueComparer<Guid>(id));
             id.SetComparer(new ValueComparer<Guid>(
-                bool (Guid c1, Guid c2) => c1 == c2,
+                bool (Guid c1, Guid c2) => ((object)c1).Equals(((object)(c2))),
                 int (Guid c) => ((object)c).GetHashCode(),
                 Guid (Guid c) => c));
 
@@ -103,6 +102,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             annuallyDays.TypeMapping = SqliteStringTypeMapping.Default;
+            annuallyDays.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var childrenCompletionType = runtimeEntityType.AddProperty(
                 "ChildrenCompletionType",
@@ -111,7 +114,7 @@ namespace Hestia.CompiledModels
                 fieldInfo: typeof(ToDoEntity).GetField("<ChildrenCompletionType>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly));
             childrenCompletionType.SetGetter(
                 ChildrenCompletionType (ToDoEntity instance) => ToDoEntityUnsafeAccessors.ChildrenCompletionType(instance),
-                bool (ToDoEntity instance) => object.Equals(((object)(ToDoEntityUnsafeAccessors.ChildrenCompletionType(instance))), ((object)(ChildrenCompletionType.RequireCompletion))));
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.ChildrenCompletionType(instance)).Equals(((object)(ChildrenCompletionType.RequireCompletion))));
             childrenCompletionType.SetSetter(
                 ToDoEntity (ToDoEntity instance, ChildrenCompletionType value) =>
                 {
@@ -158,6 +161,10 @@ namespace Hestia.CompiledModels
                     new ValueConverter<ChildrenCompletionType, byte>(
                         byte (ChildrenCompletionType value) => ((byte)(value)),
                         ChildrenCompletionType (byte value) => ((ChildrenCompletionType)(value)))));
+            childrenCompletionType.SetComparer(new ValueComparer<ChildrenCompletionType>(
+                bool (ChildrenCompletionType c1, ChildrenCompletionType c2) => ((object)c1).Equals(((object)(c2))),
+                int (ChildrenCompletionType c) => ((object)c).GetHashCode(),
+                ChildrenCompletionType (ChildrenCompletionType c) => c));
             childrenCompletionType.SetSentinelFromProviderValue((byte)0);
 
             var color = runtimeEntityType.AddProperty(
@@ -192,6 +199,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             color.TypeMapping = SqliteStringTypeMapping.Default;
+            color.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var createdDateTime = runtimeEntityType.AddProperty(
                 "CreatedDateTime",
@@ -201,7 +212,7 @@ namespace Hestia.CompiledModels
                 sentinel: new DateTimeOffset(new DateTime(1, 1, 1, 0, 0, 0, 0, DateTimeKind.Unspecified), new TimeSpan(0, 0, 0, 0, 0)));
             createdDateTime.SetGetter(
                 DateTimeOffset (ToDoEntity instance) => ToDoEntityUnsafeAccessors.CreatedDateTime(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.CreatedDateTime(instance).Equals(default(DateTimeOffset)));
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.CreatedDateTime(instance)).Equals(((object)(default(DateTimeOffset)))));
             createdDateTime.SetSetter(
                 ToDoEntity (ToDoEntity instance, DateTimeOffset value) =>
                 {
@@ -227,7 +238,7 @@ namespace Hestia.CompiledModels
                 storeGenerationIndex: -1);
             createdDateTime.TypeMapping = SqliteDateTimeOffsetTypeMapping.Default;
             createdDateTime.SetComparer(new ValueComparer<DateTimeOffset>(
-                bool (DateTimeOffset c1, DateTimeOffset c2) => c1.Equals(c2),
+                bool (DateTimeOffset c1, DateTimeOffset c2) => ((object)c1).Equals(((object)(c2))),
                 int (DateTimeOffset c) => ((object)c).GetHashCode(),
                 DateTimeOffset (DateTimeOffset c) => c));
 
@@ -239,7 +250,7 @@ namespace Hestia.CompiledModels
                 sentinel: 0u);
             currentCircleOrderIndex.SetGetter(
                 uint (ToDoEntity instance) => ToDoEntityUnsafeAccessors.CurrentCircleOrderIndex(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.CurrentCircleOrderIndex(instance) == 0U);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.CurrentCircleOrderIndex(instance)).Equals(((object)(0U))));
             currentCircleOrderIndex.SetSetter(
                 ToDoEntity (ToDoEntity instance, uint value) =>
                 {
@@ -278,6 +289,10 @@ namespace Hestia.CompiledModels
                     uint (uint v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            currentCircleOrderIndex.SetComparer(new ValueComparer<uint>(
+                bool (uint c1, uint c2) => ((object)c1).Equals(((object)(c2))),
+                int (uint c) => ((object)c).GetHashCode(),
+                uint (uint c) => c));
 
             var daysOffset = runtimeEntityType.AddProperty(
                 "DaysOffset",
@@ -287,7 +302,7 @@ namespace Hestia.CompiledModels
                 sentinel: (ushort)0);
             daysOffset.SetGetter(
                 ushort (ToDoEntity instance) => ToDoEntityUnsafeAccessors.DaysOffset(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.DaysOffset(instance) == 0);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.DaysOffset(instance)).Equals(((object)(0))));
             daysOffset.SetSetter(
                 ToDoEntity (ToDoEntity instance, ushort value) =>
                 {
@@ -326,6 +341,10 @@ namespace Hestia.CompiledModels
                     ushort (ushort v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            daysOffset.SetComparer(new ValueComparer<ushort>(
+                bool (ushort c1, ushort c2) => ((object)c1).Equals(((object)(c2))),
+                int (ushort c) => ((object)c).GetHashCode(),
+                ushort (ushort c) => c));
 
             var description = runtimeEntityType.AddProperty(
                 "Description",
@@ -360,6 +379,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             description.TypeMapping = SqliteStringTypeMapping.Default;
+            description.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var descriptionType = runtimeEntityType.AddProperty(
                 "DescriptionType",
@@ -368,7 +391,7 @@ namespace Hestia.CompiledModels
                 fieldInfo: typeof(ToDoEntity).GetField("<DescriptionType>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly));
             descriptionType.SetGetter(
                 DescriptionType (ToDoEntity instance) => ToDoEntityUnsafeAccessors.DescriptionType(instance),
-                bool (ToDoEntity instance) => object.Equals(((object)(ToDoEntityUnsafeAccessors.DescriptionType(instance))), ((object)(DescriptionType.PlainText))));
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.DescriptionType(instance)).Equals(((object)(DescriptionType.PlainText))));
             descriptionType.SetSetter(
                 ToDoEntity (ToDoEntity instance, DescriptionType value) =>
                 {
@@ -415,6 +438,10 @@ namespace Hestia.CompiledModels
                     new ValueConverter<DescriptionType, byte>(
                         byte (DescriptionType value) => ((byte)(value)),
                         DescriptionType (byte value) => ((DescriptionType)(value)))));
+            descriptionType.SetComparer(new ValueComparer<DescriptionType>(
+                bool (DescriptionType c1, DescriptionType c2) => ((object)c1).Equals(((object)(c2))),
+                int (DescriptionType c) => ((object)c).GetHashCode(),
+                DescriptionType (DescriptionType c) => c));
             descriptionType.SetSentinelFromProviderValue((byte)0);
 
             var dueDate = runtimeEntityType.AddProperty(
@@ -425,7 +452,7 @@ namespace Hestia.CompiledModels
                 sentinel: new DateOnly(1, 1, 1));
             dueDate.SetGetter(
                 DateOnly (ToDoEntity instance) => ToDoEntityUnsafeAccessors.DueDate(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.DueDate(instance) == default(DateOnly));
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.DueDate(instance)).Equals(((object)(default(DateOnly)))));
             dueDate.SetSetter(
                 ToDoEntity (ToDoEntity instance, DateOnly value) =>
                 {
@@ -451,7 +478,7 @@ namespace Hestia.CompiledModels
                 storeGenerationIndex: -1);
             dueDate.TypeMapping = SqliteDateOnlyTypeMapping.Default;
             dueDate.SetComparer(new ValueComparer<DateOnly>(
-                bool (DateOnly c1, DateOnly c2) => c1 == c2,
+                bool (DateOnly c1, DateOnly c2) => ((object)c1).Equals(((object)(c2))),
                 int (DateOnly c) => ((object)c).GetHashCode(),
                 DateOnly (DateOnly c) => c));
 
@@ -487,6 +514,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             icon.TypeMapping = SqliteStringTypeMapping.Default;
+            icon.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var isBookmark = runtimeEntityType.AddProperty(
                 "IsBookmark",
@@ -496,7 +527,7 @@ namespace Hestia.CompiledModels
                 sentinel: false);
             isBookmark.SetGetter(
                 bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsBookmark(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsBookmark(instance) == false);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.IsBookmark(instance)).Equals(((object)(false))));
             isBookmark.SetSetter(
                 ToDoEntity (ToDoEntity instance, bool value) =>
                 {
@@ -535,6 +566,10 @@ namespace Hestia.CompiledModels
                     bool (bool v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            isBookmark.SetComparer(new ValueComparer<bool>(
+                bool (bool c1, bool c2) => ((object)c1).Equals(((object)(c2))),
+                int (bool c) => ((object)c).GetHashCode(),
+                bool (bool c) => c));
 
             var isCompleted = runtimeEntityType.AddProperty(
                 "IsCompleted",
@@ -544,7 +579,7 @@ namespace Hestia.CompiledModels
                 sentinel: false);
             isCompleted.SetGetter(
                 bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsCompleted(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsCompleted(instance) == false);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.IsCompleted(instance)).Equals(((object)(false))));
             isCompleted.SetSetter(
                 ToDoEntity (ToDoEntity instance, bool value) =>
                 {
@@ -583,6 +618,10 @@ namespace Hestia.CompiledModels
                     bool (bool v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            isCompleted.SetComparer(new ValueComparer<bool>(
+                bool (bool c1, bool c2) => ((object)c1).Equals(((object)(c2))),
+                int (bool c) => ((object)c).GetHashCode(),
+                bool (bool c) => c));
 
             var isFavorite = runtimeEntityType.AddProperty(
                 "IsFavorite",
@@ -592,7 +631,7 @@ namespace Hestia.CompiledModels
                 sentinel: false);
             isFavorite.SetGetter(
                 bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsFavorite(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsFavorite(instance) == false);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.IsFavorite(instance)).Equals(((object)(false))));
             isFavorite.SetSetter(
                 ToDoEntity (ToDoEntity instance, bool value) =>
                 {
@@ -631,6 +670,10 @@ namespace Hestia.CompiledModels
                     bool (bool v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            isFavorite.SetComparer(new ValueComparer<bool>(
+                bool (bool c1, bool c2) => ((object)c1).Equals(((object)(c2))),
+                int (bool c) => ((object)c).GetHashCode(),
+                bool (bool c) => c));
 
             var isRequiredCompleteInDueDate = runtimeEntityType.AddProperty(
                 "IsRequiredCompleteInDueDate",
@@ -640,7 +683,7 @@ namespace Hestia.CompiledModels
                 sentinel: false);
             isRequiredCompleteInDueDate.SetGetter(
                 bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsRequiredCompleteInDueDate(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.IsRequiredCompleteInDueDate(instance) == false);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.IsRequiredCompleteInDueDate(instance)).Equals(((object)(false))));
             isRequiredCompleteInDueDate.SetSetter(
                 ToDoEntity (ToDoEntity instance, bool value) =>
                 {
@@ -679,6 +722,10 @@ namespace Hestia.CompiledModels
                     bool (bool v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            isRequiredCompleteInDueDate.SetComparer(new ValueComparer<bool>(
+                bool (bool c1, bool c2) => ((object)c1).Equals(((object)(c2))),
+                int (bool c) => ((object)c).GetHashCode(),
+                bool (bool c) => c));
 
             var lastCompleted = runtimeEntityType.AddProperty(
                 "LastCompleted",
@@ -714,7 +761,7 @@ namespace Hestia.CompiledModels
                 storeGenerationIndex: -1);
             lastCompleted.TypeMapping = SqliteDateTimeOffsetTypeMapping.Default;
             lastCompleted.SetComparer(new ValueComparer<DateTimeOffset?>(
-                bool (DateTimeOffset? c1, DateTimeOffset? c2) => c1 == null && c2 == null || c1 != null && ((object)c1).Equals(((object)(c2))),
+                bool (DateTimeOffset? c1, DateTimeOffset? c2) => c1.HasValue || c2.HasValue && c1.HasValue && c2.HasValue && ((object)c1.Value).Equals(((object)(c2.Value))),
                 int (DateTimeOffset? c) => (c == null ? 0 : ((object)c).GetHashCode()),
                 DateTimeOffset? (DateTimeOffset? c) => c));
 
@@ -751,6 +798,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             link.TypeMapping = SqliteStringTypeMapping.Default;
+            link.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var monthlyDays = runtimeEntityType.AddProperty(
                 "MonthlyDays",
@@ -784,6 +835,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             monthlyDays.TypeMapping = SqliteStringTypeMapping.Default;
+            monthlyDays.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var monthsOffset = runtimeEntityType.AddProperty(
                 "MonthsOffset",
@@ -793,7 +848,7 @@ namespace Hestia.CompiledModels
                 sentinel: (ushort)0);
             monthsOffset.SetGetter(
                 ushort (ToDoEntity instance) => ToDoEntityUnsafeAccessors.MonthsOffset(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.MonthsOffset(instance) == 0);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.MonthsOffset(instance)).Equals(((object)(0))));
             monthsOffset.SetSetter(
                 ToDoEntity (ToDoEntity instance, ushort value) =>
                 {
@@ -832,6 +887,10 @@ namespace Hestia.CompiledModels
                     ushort (ushort v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            monthsOffset.SetComparer(new ValueComparer<ushort>(
+                bool (ushort c1, ushort c2) => ((object)c1).Equals(((object)(c2))),
+                int (ushort c) => ((object)c).GetHashCode(),
+                ushort (ushort c) => c));
 
             var name = runtimeEntityType.AddProperty(
                 "Name",
@@ -866,6 +925,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             name.TypeMapping = SqliteStringTypeMapping.Default;
+            name.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var normalizeName = runtimeEntityType.AddProperty(
                 "NormalizeName",
@@ -900,6 +963,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             normalizeName.TypeMapping = SqliteStringTypeMapping.Default;
+            normalizeName.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var orderIndex = runtimeEntityType.AddProperty(
                 "OrderIndex",
@@ -909,7 +976,7 @@ namespace Hestia.CompiledModels
                 sentinel: 0u);
             orderIndex.SetGetter(
                 uint (ToDoEntity instance) => ToDoEntityUnsafeAccessors.OrderIndex(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.OrderIndex(instance) == 0U);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.OrderIndex(instance)).Equals(((object)(0U))));
             orderIndex.SetSetter(
                 ToDoEntity (ToDoEntity instance, uint value) =>
                 {
@@ -948,6 +1015,10 @@ namespace Hestia.CompiledModels
                     uint (uint v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            orderIndex.SetComparer(new ValueComparer<uint>(
+                bool (uint c1, uint c2) => ((object)c1).Equals(((object)(c2))),
+                int (uint c) => ((object)c).GetHashCode(),
+                uint (uint c) => c));
 
             var parentId = runtimeEntityType.AddProperty(
                 "ParentId",
@@ -983,7 +1054,7 @@ namespace Hestia.CompiledModels
                 storeGenerationIndex: -1);
             parentId.TypeMapping = SqliteGuidTypeMapping.Default;
             parentId.SetComparer(new ValueComparer<Guid?>(
-                bool (Guid? c1, Guid? c2) => c1 == c2,
+                bool (Guid? c1, Guid? c2) => c1.HasValue || c2.HasValue && c1.HasValue && c2.HasValue && ((object)c1.Value).Equals(((object)(c2.Value))),
                 int (Guid? c) => (c == null ? 0 : ((object)c).GetHashCode()),
                 Guid? (Guid? c) => c));
 
@@ -1021,7 +1092,7 @@ namespace Hestia.CompiledModels
                 storeGenerationIndex: -1);
             referenceId.TypeMapping = SqliteGuidTypeMapping.Default;
             referenceId.SetComparer(new ValueComparer<Guid?>(
-                bool (Guid? c1, Guid? c2) => c1 == c2,
+                bool (Guid? c1, Guid? c2) => c1.HasValue || c2.HasValue && c1.HasValue && c2.HasValue && ((object)c1.Value).Equals(((object)(c2.Value))),
                 int (Guid? c) => (c == null ? 0 : ((object)c).GetHashCode()),
                 Guid? (Guid? c) => c));
 
@@ -1033,7 +1104,7 @@ namespace Hestia.CompiledModels
                 sentinel: 0u);
             remindDaysBefore.SetGetter(
                 uint (ToDoEntity instance) => ToDoEntityUnsafeAccessors.RemindDaysBefore(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.RemindDaysBefore(instance) == 0U);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.RemindDaysBefore(instance)).Equals(((object)(0U))));
             remindDaysBefore.SetSetter(
                 ToDoEntity (ToDoEntity instance, uint value) =>
                 {
@@ -1072,6 +1143,10 @@ namespace Hestia.CompiledModels
                     uint (uint v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            remindDaysBefore.SetComparer(new ValueComparer<uint>(
+                bool (uint c1, uint c2) => ((object)c1).Equals(((object)(c2))),
+                int (uint c) => ((object)c).GetHashCode(),
+                uint (uint c) => c));
 
             var type = runtimeEntityType.AddProperty(
                 "Type",
@@ -1080,7 +1155,7 @@ namespace Hestia.CompiledModels
                 fieldInfo: typeof(ToDoEntity).GetField("<Type>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly));
             type.SetGetter(
                 ToDoType (ToDoEntity instance) => ToDoEntityUnsafeAccessors.Type(instance),
-                bool (ToDoEntity instance) => object.Equals(((object)(ToDoEntityUnsafeAccessors.Type(instance))), ((object)(ToDoType.Value))));
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.Type(instance)).Equals(((object)(ToDoType.Value))));
             type.SetSetter(
                 ToDoEntity (ToDoEntity instance, ToDoType value) =>
                 {
@@ -1127,6 +1202,10 @@ namespace Hestia.CompiledModels
                     new ValueConverter<ToDoType, int>(
                         int (ToDoType value) => ((int)(value)),
                         ToDoType (int value) => ((ToDoType)(value)))));
+            type.SetComparer(new ValueComparer<ToDoType>(
+                bool (ToDoType c1, ToDoType c2) => ((object)c1).Equals(((object)(c2))),
+                int (ToDoType c) => ((object)c).GetHashCode(),
+                ToDoType (ToDoType c) => c));
             type.SetSentinelFromProviderValue(0);
 
             var typeOfPeriodicity = runtimeEntityType.AddProperty(
@@ -1136,7 +1215,7 @@ namespace Hestia.CompiledModels
                 fieldInfo: typeof(ToDoEntity).GetField("<TypeOfPeriodicity>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.DeclaredOnly));
             typeOfPeriodicity.SetGetter(
                 TypeOfPeriodicity (ToDoEntity instance) => ToDoEntityUnsafeAccessors.TypeOfPeriodicity(instance),
-                bool (ToDoEntity instance) => object.Equals(((object)(ToDoEntityUnsafeAccessors.TypeOfPeriodicity(instance))), ((object)(TypeOfPeriodicity.Daily))));
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.TypeOfPeriodicity(instance)).Equals(((object)(TypeOfPeriodicity.Daily))));
             typeOfPeriodicity.SetSetter(
                 ToDoEntity (ToDoEntity instance, TypeOfPeriodicity value) =>
                 {
@@ -1183,6 +1262,10 @@ namespace Hestia.CompiledModels
                     new ValueConverter<TypeOfPeriodicity, byte>(
                         byte (TypeOfPeriodicity value) => ((byte)(value)),
                         TypeOfPeriodicity (byte value) => ((TypeOfPeriodicity)(value)))));
+            typeOfPeriodicity.SetComparer(new ValueComparer<TypeOfPeriodicity>(
+                bool (TypeOfPeriodicity c1, TypeOfPeriodicity c2) => ((object)c1).Equals(((object)(c2))),
+                int (TypeOfPeriodicity c) => ((object)c).GetHashCode(),
+                TypeOfPeriodicity (TypeOfPeriodicity c) => c));
             typeOfPeriodicity.SetSentinelFromProviderValue((byte)0);
 
             var weeklyDays = runtimeEntityType.AddProperty(
@@ -1217,6 +1300,10 @@ namespace Hestia.CompiledModels
                 relationshipIndex: -1,
                 storeGenerationIndex: -1);
             weeklyDays.TypeMapping = SqliteStringTypeMapping.Default;
+            weeklyDays.SetComparer(new ValueComparer<string>(
+                bool (string c1, string c2) => c1 == c2,
+                int (string c) => ((object)c).GetHashCode(),
+                string (string c) => c));
 
             var weeksOffset = runtimeEntityType.AddProperty(
                 "WeeksOffset",
@@ -1226,7 +1313,7 @@ namespace Hestia.CompiledModels
                 sentinel: (ushort)0);
             weeksOffset.SetGetter(
                 ushort (ToDoEntity instance) => ToDoEntityUnsafeAccessors.WeeksOffset(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.WeeksOffset(instance) == 0);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.WeeksOffset(instance)).Equals(((object)(0))));
             weeksOffset.SetSetter(
                 ToDoEntity (ToDoEntity instance, ushort value) =>
                 {
@@ -1265,6 +1352,10 @@ namespace Hestia.CompiledModels
                     ushort (ushort v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            weeksOffset.SetComparer(new ValueComparer<ushort>(
+                bool (ushort c1, ushort c2) => ((object)c1).Equals(((object)(c2))),
+                int (ushort c) => ((object)c).GetHashCode(),
+                ushort (ushort c) => c));
 
             var yearsOffset = runtimeEntityType.AddProperty(
                 "YearsOffset",
@@ -1274,7 +1365,7 @@ namespace Hestia.CompiledModels
                 sentinel: (ushort)0);
             yearsOffset.SetGetter(
                 ushort (ToDoEntity instance) => ToDoEntityUnsafeAccessors.YearsOffset(instance),
-                bool (ToDoEntity instance) => ToDoEntityUnsafeAccessors.YearsOffset(instance) == 0);
+                bool (ToDoEntity instance) => ((object)ToDoEntityUnsafeAccessors.YearsOffset(instance)).Equals(((object)(0))));
             yearsOffset.SetSetter(
                 ToDoEntity (ToDoEntity instance, ushort value) =>
                 {
@@ -1313,6 +1404,10 @@ namespace Hestia.CompiledModels
                     ushort (ushort v) => v),
                 mappingInfo: new RelationalTypeMappingInfo(
                     storeTypeName: "INTEGER"));
+            yearsOffset.SetComparer(new ValueComparer<ushort>(
+                bool (ushort c1, ushort c2) => ((object)c1).Equals(((object)(c2))),
+                int (ushort c) => ((object)c).GetHashCode(),
+                ushort (ushort c) => c));
 
             var key = runtimeEntityType.AddKey(
                 new[] { id });
@@ -1363,9 +1458,9 @@ namespace Hestia.CompiledModels
                     return ((ISnapshot)(new Snapshot<Guid, string, ChildrenCompletionType, string, DateTimeOffset, uint, ushort, string, DescriptionType, DateOnly, string, bool, bool, bool, bool, DateTimeOffset?, string, string, ushort, string, string, uint, Guid?, Guid?, uint, ToDoType, TypeOfPeriodicity, string, ushort, ushort>(((ValueComparer<Guid>)(((IProperty)id).GetValueComparer())).Snapshot(source.GetCurrentValue<Guid>(id)), (source.GetCurrentValue<string>(annuallyDays) == null ? null : ((ValueComparer<string>)(((IProperty)annuallyDays).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(annuallyDays))), ((ValueComparer<ChildrenCompletionType>)(((IProperty)childrenCompletionType).GetValueComparer())).Snapshot(source.GetCurrentValue<ChildrenCompletionType>(childrenCompletionType)), (source.GetCurrentValue<string>(color) == null ? null : ((ValueComparer<string>)(((IProperty)color).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(color))), ((ValueComparer<DateTimeOffset>)(((IProperty)createdDateTime).GetValueComparer())).Snapshot(source.GetCurrentValue<DateTimeOffset>(createdDateTime)), ((ValueComparer<uint>)(((IProperty)currentCircleOrderIndex).GetValueComparer())).Snapshot(source.GetCurrentValue<uint>(currentCircleOrderIndex)), ((ValueComparer<ushort>)(((IProperty)daysOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(daysOffset)), (source.GetCurrentValue<string>(description) == null ? null : ((ValueComparer<string>)(((IProperty)description).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(description))), ((ValueComparer<DescriptionType>)(((IProperty)descriptionType).GetValueComparer())).Snapshot(source.GetCurrentValue<DescriptionType>(descriptionType)), ((ValueComparer<DateOnly>)(((IProperty)dueDate).GetValueComparer())).Snapshot(source.GetCurrentValue<DateOnly>(dueDate)), (source.GetCurrentValue<string>(icon) == null ? null : ((ValueComparer<string>)(((IProperty)icon).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(icon))), ((ValueComparer<bool>)(((IProperty)isBookmark).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isBookmark)), ((ValueComparer<bool>)(((IProperty)isCompleted).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isCompleted)), ((ValueComparer<bool>)(((IProperty)isFavorite).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isFavorite)), ((ValueComparer<bool>)(((IProperty)isRequiredCompleteInDueDate).GetValueComparer())).Snapshot(source.GetCurrentValue<bool>(isRequiredCompleteInDueDate)), (source.GetCurrentValue<DateTimeOffset?>(lastCompleted) == null ? null : ((ValueComparer<DateTimeOffset?>)(((IProperty)lastCompleted).GetValueComparer())).Snapshot(source.GetCurrentValue<DateTimeOffset?>(lastCompleted))), (source.GetCurrentValue<string>(link) == null ? null : ((ValueComparer<string>)(((IProperty)link).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(link))), (source.GetCurrentValue<string>(monthlyDays) == null ? null : ((ValueComparer<string>)(((IProperty)monthlyDays).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(monthlyDays))), ((ValueComparer<ushort>)(((IProperty)monthsOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(monthsOffset)), (source.GetCurrentValue<string>(name) == null ? null : ((ValueComparer<string>)(((IProperty)name).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(name))), (source.GetCurrentValue<string>(normalizeName) == null ? null : ((ValueComparer<string>)(((IProperty)normalizeName).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(normalizeName))), ((ValueComparer<uint>)(((IProperty)orderIndex).GetValueComparer())).Snapshot(source.GetCurrentValue<uint>(orderIndex)), (source.GetCurrentValue<Guid?>(parentId) == null ? null : ((ValueComparer<Guid?>)(((IProperty)parentId).GetValueComparer())).Snapshot(source.GetCurrentValue<Guid?>(parentId))), (source.GetCurrentValue<Guid?>(referenceId) == null ? null : ((ValueComparer<Guid?>)(((IProperty)referenceId).GetValueComparer())).Snapshot(source.GetCurrentValue<Guid?>(referenceId))), ((ValueComparer<uint>)(((IProperty)remindDaysBefore).GetValueComparer())).Snapshot(source.GetCurrentValue<uint>(remindDaysBefore)), ((ValueComparer<ToDoType>)(((IProperty)type).GetValueComparer())).Snapshot(source.GetCurrentValue<ToDoType>(type)), ((ValueComparer<TypeOfPeriodicity>)(((IProperty)typeOfPeriodicity).GetValueComparer())).Snapshot(source.GetCurrentValue<TypeOfPeriodicity>(typeOfPeriodicity)), (source.GetCurrentValue<string>(weeklyDays) == null ? null : ((ValueComparer<string>)(((IProperty)weeklyDays).GetValueComparer())).Snapshot(source.GetCurrentValue<string>(weeklyDays))), ((ValueComparer<ushort>)(((IProperty)weeksOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(weeksOffset)), ((ValueComparer<ushort>)(((IProperty)yearsOffset).GetValueComparer())).Snapshot(source.GetCurrentValue<ushort>(yearsOffset)))));
                 });
             runtimeEntityType.SetStoreGeneratedValuesFactory(
-                ISnapshot () => ((ISnapshot)(new Snapshot<Guid>(((ValueComparer<Guid>)(((IProperty)id).GetValueComparer())).Snapshot(default(Guid))))));
+                ISnapshot () => Snapshot.Empty);
             runtimeEntityType.SetTemporaryValuesFactory(
-                ISnapshot (IInternalEntry source) => ((ISnapshot)(new Snapshot<Guid>(default(Guid)))));
+                ISnapshot (IInternalEntry source) => Snapshot.Empty);
             runtimeEntityType.SetShadowValuesFactory(
                 ISnapshot (IDictionary<string, object> source) => Snapshot.Empty);
             runtimeEntityType.SetEmptyShadowValuesFactory(
@@ -1384,7 +1479,7 @@ namespace Hestia.CompiledModels
                 originalValueCount: 30,
                 shadowCount: 0,
                 relationshipCount: 1,
-                storeGeneratedCount: 1));
+                storeGeneratedCount: 0));
             runtimeEntityType.AddAnnotation("Relational:FunctionName", null);
             runtimeEntityType.AddAnnotation("Relational:Schema", null);
             runtimeEntityType.AddAnnotation("Relational:SqlQuery", null);
