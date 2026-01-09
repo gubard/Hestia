@@ -7,7 +7,9 @@ using Gaia.Models;
 using Gaia.Services;
 using Hestia.Contract.Helpers;
 using Hestia.Contract.Models;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
+using Nestor.Db.Helpers;
+using Nestor.Db.Models;
 using Nestor.Db.Services;
 
 namespace Hestia.Contract.Services;
@@ -17,32 +19,25 @@ public interface IToDoService
 
 public interface IHttpToDoService : IToDoService;
 
-public interface IEfToDoService
+public interface IDbToDoService
     : IToDoService,
-        IEfService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
+        IDbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
-public sealed class EfToDoService<TDbContext>
-    : EfService<
-        HestiaGetRequest,
-        HestiaPostRequest,
-        HestiaGetResponse,
-        HestiaPostResponse,
-        TDbContext
-    >,
-        IEfToDoService
-    where TDbContext : NestorDbContext, IToDoDbContext
+public sealed class DbToDoService
+    : DbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>,
+        IDbToDoService
 {
     private readonly GaiaValues _gaiaValues;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
     private readonly IToDoValidator _toDoValidator;
 
-    public EfToDoService(
-        TDbContext dbContext,
+    public DbToDoService(
+        IDbConnectionFactory factory,
         GaiaValues gaiaValues,
         ToDoParametersFillerService toDoParametersFillerService,
         IToDoValidator toDoValidator
     )
-        : base(dbContext)
+        : base(factory)
     {
         _gaiaValues = gaiaValues;
         _toDoParametersFillerService = toDoParametersFillerService;
@@ -62,14 +57,21 @@ public sealed class EfToDoService<TDbContext>
         CancellationToken ct
     )
     {
-        var items = await DbContext.ToDos.ToArrayAsync(ct);
+        await using var session = await Factory.CreateSessionAsync(ct);
+        var items = await session.GetToDosAsync(ToDosExt.SelectQuery, ct);
         var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
         {
-            response.Events = await DbContext
-                .Events.Where(x => x.Id > request.LastId)
-                .ToArrayAsync(ct);
+            await using var reader = await session.ExecuteReaderAsync(
+                new(
+                    $"{EventsExt.SelectQuery} WHERE Id > @LastId",
+                    new SqliteParameter[] { new("@LastId", request.LastId) }
+                ),
+                ct
+            );
+
+            response.Events = (await reader.ReadEventsAsync(ct).ToEnumerableAsync()).ToArray();
         }
 
         return response;
@@ -93,31 +95,37 @@ public sealed class EfToDoService<TDbContext>
         var response = new HestiaPostResponse();
         Dictionary<Guid, FullToDo> fullDictionary = new();
         var editEntities = new List<EditToDoEntity>();
-        await CreateAsync(idempotentId, response, request.Creates, ct);
+        var session = await Factory.CreateSessionAsync(ct);
+        await CreateAsync(session, idempotentId, response, request.Creates, ct);
         Edit(request.Edits, editEntities);
-        ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
+        ChangeOrder(session, request.ChangeOrder, response.ValidationErrors, editEntities);
 
-        var allItems = (
-            await DbContext.ToDos.ToDictionaryAsync(x => x.Id, ct)
-        ).ToFrozenDictionary();
+        var allItems = (await session.GetToDosAsync(ToDosExt.SelectQuery, ct))
+            .ToDictionary(x => x.Id)
+            .ToFrozenDictionary();
 
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
 
-        await ToDoEntity.EditEntitiesAsync(
-            DbContext,
+        await session.EditEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
             editEntities.ToArray(),
             ct
         );
 
-        await DeleteAsync(idempotentId, request.DeleteIds, ct);
-        await DbContext.SaveChangesAsync(ct);
+        await DeleteAsync(session, idempotentId, request.DeleteIds, ct);
+        await session.CommitAsync(ct);
 
-        response.Events = await DbContext
-            .Events.Where(x => x.Id > request.LastLocalId)
-            .ToArrayAsync(ct);
+        await using var reader = await session.ExecuteReaderAsync(
+            new(
+                $"{EventsExt.SelectQuery} WHERE Id > @LastLocalId",
+                new SqliteParameter[] { new("@LastLocalId", request.LastLocalId) }
+            ),
+            ct
+        );
+
+        response.Events = (await reader.ReadEventsAsync(ct).ToEnumerableAsync()).ToArray();
 
         return response;
     }
@@ -125,38 +133,54 @@ public sealed class EfToDoService<TDbContext>
     public override HestiaPostResponse Post(Guid idempotentId, HestiaPostRequest request)
     {
         var response = new HestiaPostResponse();
-        var editEntities = new List<EditToDoEntity>();
         Dictionary<Guid, FullToDo> fullDictionary = new();
-        Create(idempotentId, response, request.Creates);
+        var editEntities = new List<EditToDoEntity>();
+        var session = Factory.CreateSession();
+        Create(session, idempotentId, response, request.Creates);
         Edit(request.Edits, editEntities);
-        ChangeOrder(request.ChangeOrder, response.ValidationErrors, editEntities);
-        var allItems = DbContext.ToDos.ToDictionary(x => x.Id).ToFrozenDictionary();
+        ChangeOrder(session, request.ChangeOrder, response.ValidationErrors, editEntities);
+
+        var allItems = session
+            .GetToDos(ToDosExt.SelectQuery)
+            .ToDictionary(x => x.Id)
+            .ToFrozenDictionary();
+
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
 
-        ToDoEntity.EditEntities(
-            DbContext,
-            _gaiaValues.UserId.ToString(),
-            idempotentId,
-            editEntities.ToArray()
+        session.EditEntities(_gaiaValues.UserId.ToString(), idempotentId, editEntities.ToArray());
+
+        Delete(session, idempotentId, request.DeleteIds);
+        session.Commit();
+
+        using var reader = session.ExecuteReader(
+            new(
+                $"{EventsExt.SelectQuery} WHERE Id > @LastLocalId",
+                new SqliteParameter[] { new("@LastLocalId", request.LastLocalId) }
+            )
         );
 
-        Delete(idempotentId, request.DeleteIds);
-        DbContext.SaveChanges();
-
-        response.Events = DbContext.Events.Where(x => x.Id > request.LastLocalId).ToArray();
+        response.Events = reader.ReadEvents().ToArray();
 
         return response;
     }
 
     public override HestiaGetResponse Get(HestiaGetRequest request)
     {
-        var items = DbContext.ToDos.ToArray();
+        using var session = Factory.CreateSession();
+        var items = session.GetToDos(ToDosExt.SelectQuery);
         var response = CreateGetResponse(request, items);
 
         if (request.LastId != -1)
         {
-            response.Events = DbContext.Events.Where(x => x.Id > request.LastId).ToArray();
+            using var reader = session.ExecuteReader(
+                new(
+                    $"{EventsExt.SelectQuery} WHERE Id > @LastId",
+                    new SqliteParameter[] { new("@LastId", request.LastId) }
+                )
+            );
+
+            response.Events = reader.ReadEvents().ToArray();
         }
 
         return response;
@@ -606,6 +630,7 @@ public sealed class EfToDoService<TDbContext>
     }
 
     private ConfiguredValueTaskAwaitable DeleteAsync(
+        DbSession session,
         Guid idempotentId,
         Guid[] ids,
         CancellationToken ct
@@ -616,26 +641,21 @@ public sealed class EfToDoService<TDbContext>
             return TaskHelper.ConfiguredCompletedTask;
         }
 
-        return ToDoEntity.DeleteEntitiesAsync(
-            DbContext,
-            _gaiaValues.UserId.ToString(),
-            idempotentId,
-            ids,
-            ct
-        );
+        return session.DeleteEntitiesAsync(_gaiaValues.UserId.ToString(), idempotentId, ids, ct);
     }
 
-    private void Delete(Guid idempotentId, Guid[] ids)
+    private void Delete(DbSession session, Guid idempotentId, Guid[] ids)
     {
         if (ids.Length == 0)
         {
             return;
         }
 
-        ToDoEntity.DeleteEntities(DbContext, _gaiaValues.UserId.ToString(), idempotentId, ids);
+        session.DeleteEntities(_gaiaValues.UserId.ToString(), idempotentId, ids);
     }
 
     private void ChangeOrder(
+        DbSession session,
         ToDoChangeOrder[] changeOrders,
         List<ValidationError> errors,
         List<EditToDoEntity> editEntities
@@ -646,14 +666,14 @@ public sealed class EfToDoService<TDbContext>
             return;
         }
 
-        var insertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToFrozenSet();
-        var insertItems = DbContext.ToDos.Where(x => insertIds.Contains(x.Id));
+        var insertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToArray();
+        var insertItems = session.GetToDos(insertIds);
         var insertItemsDictionary = insertItems.ToDictionary(x => x.Id).ToFrozenDictionary();
-        var startIds = changeOrders.Select(x => x.StartId).Distinct().ToFrozenSet();
-        var startItems = DbContext.ToDos.Where(x => startIds.Contains(x.Id));
+        var startIds = changeOrders.Select(x => x.StartId).Distinct().ToArray();
+        var startItems = session.GetToDos(startIds);
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
-        var parentItems = startItems.Select(x => x.ParentId).Distinct().ToFrozenSet();
-        var siblings = DbContext.ToDos.Where(x => parentItems.Contains(x.Id));
+        var parentItems = startItems.Select(x => x.ParentId).WhereNotNull().Distinct().ToArray();
+        var siblings = session.GetToDos(parentItems);
 
         for (var index = 0; index < changeOrders.Length; index++)
         {
@@ -702,65 +722,11 @@ public sealed class EfToDoService<TDbContext>
         }
     }
 
-    private void Create(Guid idempotentId, HestiaPostResponse response, ShortToDo[] creates)
-    {
-        if (creates.Length == 0)
-        {
-            return;
-        }
-
-        var adds = new List<ToDoEntity>();
-
-        foreach (var create in creates)
-        {
-            var errorCount = response.ValidationErrors.Count;
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create.Name, nameof(create.Name))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create.Description, nameof(create.Description))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.DueDate))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.Link))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.AnnuallyDays))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.MonthlyDays))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.WeeklyDays))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.DaysOffset))
-            );
-            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, "Reference"));
-
-            if (errorCount != response.ValidationErrors.Count)
-            {
-                continue;
-            }
-
-            adds.Add(create.ToToDoEntity());
-        }
-
-        ToDoEntity.AddEntities(
-            DbContext,
-            _gaiaValues.UserId.ToString(),
-            idempotentId,
-            adds.ToArray()
-        );
-    }
-
-    private async ValueTask CreateAsync(
+    private void Create(
+        DbSession session,
         Guid idempotentId,
         HestiaPostResponse response,
-        ShortToDo[] creates,
-        CancellationToken ct
+        ShortToDo[] creates
     )
     {
         if (creates.Length == 0)
@@ -807,8 +773,62 @@ public sealed class EfToDoService<TDbContext>
             adds.Add(create.ToToDoEntity());
         }
 
-        await ToDoEntity.AddEntitiesAsync(
-            DbContext,
+        session.AddEntities(_gaiaValues.UserId.ToString(), idempotentId, adds.ToArray());
+    }
+
+    private ConfiguredValueTaskAwaitable CreateAsync(
+        DbSession session,
+        Guid idempotentId,
+        HestiaPostResponse response,
+        ShortToDo[] creates,
+        CancellationToken ct
+    )
+    {
+        if (creates.Length == 0)
+        {
+            return TaskHelper.ConfiguredCompletedTask;
+        }
+
+        var adds = new List<ToDoEntity>();
+
+        foreach (var create in creates)
+        {
+            var errorCount = response.ValidationErrors.Count;
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create.Name, nameof(create.Name))
+            );
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create.Description, nameof(create.Description))
+            );
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create, nameof(create.DueDate))
+            );
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create, nameof(create.Link))
+            );
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create, nameof(create.AnnuallyDays))
+            );
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create, nameof(create.MonthlyDays))
+            );
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create, nameof(create.WeeklyDays))
+            );
+            response.ValidationErrors.AddRange(
+                _toDoValidator.Validate(create, nameof(create.DaysOffset))
+            );
+            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, "Reference"));
+
+            if (errorCount != response.ValidationErrors.Count)
+            {
+                continue;
+            }
+
+            adds.Add(create.ToToDoEntity());
+        }
+
+        return session.AddEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
             adds.ToArray(),

@@ -2,8 +2,7 @@ using System.Collections.Frozen;
 using Hestia.Contract.Helpers;
 using Hestia.Contract.Models;
 using Hestia.Contract.Services;
-using Hestia.Services;
-using Nestor.Db.Sqlite.Helpers;
+using Nestor.Db.Helpers;
 using Zeus.Helpers;
 
 var migration = new Dictionary<int, string>();
@@ -22,12 +21,11 @@ var builder = WebApplication
     .CreateBuilder(args)
     .AddServicesZeus<
         IToDoService,
-        EfToDoService<HestiaDbContext>,
+        DbToDoService,
         HestiaGetRequest,
         HestiaPostRequest,
         HestiaGetResponse,
-        HestiaPostResponse,
-        HestiaDbContext
+        HestiaPostResponse
     >(migration.ToFrozenDictionary(), "Hestia");
 
 builder.Services.AddTransient<ToDoParametersFillerService>();

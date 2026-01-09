@@ -1,11 +1,8 @@
 ﻿using Gaia.Helpers;
-using Hestia.Contract.Services;
-using Nestor.Db.Models;
 
 namespace Hestia.Contract.Models;
 
-[SourceEntity(nameof(Id), typeof(IToDoDbContext))]
-public partial class ToDoEntity
+public class ToDoEntity
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;
