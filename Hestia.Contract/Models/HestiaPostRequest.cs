@@ -1,4 +1,4 @@
-﻿using Gaia.Services;
+﻿using Nestor.Db.Models;
 
 namespace Hestia.Contract.Models;
 
@@ -13,4 +13,5 @@ public class HestiaPostRequest : IPostRequest
     public ShortToDo[] Creates { get; set; } = [];
     public CloneToDoItem[] Clones { get; set; } = [];
     public long LastLocalId { get; set; }
+    public EventEntity[] Events { get; set; } = [];
 }

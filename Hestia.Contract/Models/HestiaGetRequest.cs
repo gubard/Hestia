@@ -1,8 +1,6 @@
-﻿using Gaia.Services;
+﻿namespace Hestia.Contract.Models;
 
-namespace Hestia.Contract.Models;
-
-public class HestiaGetRequest : IGetRequest
+public class HestiaGetRequest
 {
     public bool IsSelectors { get; set; }
     public GetToStringItem[] ToStringIds { get; set; } = [];

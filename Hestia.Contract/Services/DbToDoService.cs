@@ -82,7 +82,7 @@ public sealed class DbToDoService
         return response;
     }
 
-    public override ConfiguredValueTaskAwaitable<HestiaPostResponse> PostAsync(
+    protected override ConfiguredValueTaskAwaitable<HestiaPostResponse> ExecuteAsync(
         Guid idempotentId,
         HestiaPostRequest request,
         CancellationToken ct
@@ -127,7 +127,7 @@ public sealed class DbToDoService
         return response;
     }
 
-    public override HestiaPostResponse Post(Guid idempotentId, HestiaPostRequest request)
+    protected override HestiaPostResponse Execute(Guid idempotentId, HestiaPostRequest request)
     {
         var response = new HestiaPostResponse();
         Dictionary<Guid, FullToDo> fullDictionary = new();
