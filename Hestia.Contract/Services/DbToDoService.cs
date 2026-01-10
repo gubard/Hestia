@@ -17,7 +17,9 @@ namespace Hestia.Contract.Services;
 public interface IToDoService
     : IService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
-public interface IHttpToDoService : IToDoService;
+public interface IHttpToDoService
+    : IToDoService,
+        IHttpService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
 public interface IDbToDoService
     : IToDoService,
@@ -30,18 +32,21 @@ public sealed class DbToDoService
     private readonly GaiaValues _gaiaValues;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
     private readonly IToDoValidator _toDoValidator;
+    private readonly IFactory<DbServiceOptions> _factoryOptions;
 
     public DbToDoService(
         IDbConnectionFactory factory,
         GaiaValues gaiaValues,
         ToDoParametersFillerService toDoParametersFillerService,
-        IToDoValidator toDoValidator
+        IToDoValidator toDoValidator,
+        IFactory<DbServiceOptions> factoryOptions
     )
         : base(factory)
     {
         _gaiaValues = gaiaValues;
         _toDoParametersFillerService = toDoParametersFillerService;
         _toDoValidator = toDoValidator;
+        _factoryOptions = factoryOptions;
     }
 
     public override ConfiguredValueTaskAwaitable<HestiaGetResponse> GetAsync(
@@ -96,7 +101,8 @@ public sealed class DbToDoService
         Dictionary<Guid, FullToDo> fullDictionary = new();
         var editEntities = new List<EditToDoEntity>();
         var session = await Factory.CreateSessionAsync(ct);
-        await CreateAsync(session, idempotentId, response, request.Creates, ct);
+        var options = _factoryOptions.Create();
+        await CreateAsync(session, options, idempotentId, response, request.Creates, ct);
         Edit(request.Edits, editEntities);
         ChangeOrder(session, request.ChangeOrder, response.ValidationErrors, editEntities);
 
@@ -110,12 +116,12 @@ public sealed class DbToDoService
         await session.EditEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
+            options.IsUseEvents,
             editEntities.ToArray(),
             ct
         );
 
-        await DeleteAsync(session, idempotentId, request.DeleteIds, ct);
-        response.Events = await GetLastEventsAsync(session, request.LastLocalId, ct);
+        await DeleteAsync(session, options, idempotentId, request.DeleteIds, ct);
         await session.CommitAsync(ct);
 
         return response;
@@ -127,7 +133,8 @@ public sealed class DbToDoService
         Dictionary<Guid, FullToDo> fullDictionary = new();
         var editEntities = new List<EditToDoEntity>();
         var session = Factory.CreateSession();
-        Create(session, idempotentId, response, request.Creates);
+        var options = _factoryOptions.Create();
+        Create(session, options, idempotentId, response, request.Creates);
         Edit(request.Edits, editEntities);
         ChangeOrder(session, request.ChangeOrder, response.ValidationErrors, editEntities);
 
@@ -138,9 +145,15 @@ public sealed class DbToDoService
 
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
-        session.EditEntities(_gaiaValues.UserId.ToString(), idempotentId, editEntities.ToArray());
-        Delete(session, idempotentId, request.DeleteIds);
-        response.Events = GetLastEvents(session, request.LastLocalId);
+
+        session.EditEntities(
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            editEntities.ToArray()
+        );
+
+        Delete(session, options, idempotentId, request.DeleteIds);
         session.Commit();
 
         return response;
@@ -612,6 +625,7 @@ public sealed class DbToDoService
 
     private ConfiguredValueTaskAwaitable DeleteAsync(
         DbSession session,
+        DbServiceOptions options,
         Guid idempotentId,
         Guid[] ids,
         CancellationToken ct
@@ -622,17 +636,28 @@ public sealed class DbToDoService
             return TaskHelper.ConfiguredCompletedTask;
         }
 
-        return session.DeleteEntitiesAsync(_gaiaValues.UserId.ToString(), idempotentId, ids, ct);
+        return session.DeleteEntitiesAsync(
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            ids,
+            ct
+        );
     }
 
-    private void Delete(DbSession session, Guid idempotentId, Guid[] ids)
+    private void Delete(DbSession session, DbServiceOptions options, Guid idempotentId, Guid[] ids)
     {
         if (ids.Length == 0)
         {
             return;
         }
 
-        session.DeleteEntities(_gaiaValues.UserId.ToString(), idempotentId, ids);
+        session.DeleteEntities(
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            ids
+        );
     }
 
     private void ChangeOrder(
@@ -705,6 +730,7 @@ public sealed class DbToDoService
 
     private void Create(
         DbSession session,
+        DbServiceOptions options,
         Guid idempotentId,
         HestiaPostResponse response,
         ShortToDo[] creates
@@ -754,11 +780,17 @@ public sealed class DbToDoService
             adds.Add(create.ToToDoEntity());
         }
 
-        session.AddEntities(_gaiaValues.UserId.ToString(), idempotentId, adds.ToArray());
+        session.AddEntities(
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            adds.ToArray()
+        );
     }
 
     private ConfiguredValueTaskAwaitable CreateAsync(
         DbSession session,
+        DbServiceOptions options,
         Guid idempotentId,
         HestiaPostResponse response,
         ShortToDo[] creates,
@@ -812,6 +844,7 @@ public sealed class DbToDoService
         return session.AddEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
+            options.IsUseEvents,
             adds.ToArray(),
             ct
         );
