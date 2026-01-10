@@ -10,13 +10,6 @@ public interface IToDoValidator : IValidator<string>, IValidator<IToDo>;
 
 public sealed class ToDoValidator : IToDoValidator
 {
-    private const string ValidNameChars =
-        StringHelper.UpperLatin
-        + StringHelper.LowerLatin
-        + StringHelper.Number
-        + StringHelper.SpecialSymbols
-        + " ";
-
     private const string ValidDescriptionChars =
         StringHelper.UpperLatin
         + StringHelper.LowerLatin
@@ -24,9 +17,6 @@ public sealed class ToDoValidator : IToDoValidator
         + StringHelper.SpecialSymbols
         + " ";
 
-    private static readonly SearchValues<char> ValidNameValues = SearchValues.Create(
-        ValidNameChars
-    );
     private static readonly SearchValues<char> ValidDescriptionValues = SearchValues.Create(
         ValidDescriptionChars
     );
@@ -50,20 +40,6 @@ public sealed class ToDoValidator : IToDoValidator
                 if (value.Length < 1)
                 {
                     return [new PropertyMinSizeValidationError("Name", (ulong)value.Length, 3)];
-                }
-
-                var index = value.IndexOfAnyExcept(ValidNameValues);
-
-                if (index >= 0)
-                {
-                    return
-                    [
-                        new PropertyContainsInvalidValueValidationError<char>(
-                            "Name",
-                            value[index],
-                            ValidNameChars.ToCharArray()
-                        ),
-                    ];
                 }
 
                 return [];
