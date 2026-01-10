@@ -115,17 +115,8 @@ public sealed class DbToDoService
         );
 
         await DeleteAsync(session, idempotentId, request.DeleteIds, ct);
+        response.Events = await GetLastEventsAsync(session, request.LastLocalId, ct);
         await session.CommitAsync(ct);
-
-        await using var reader = await session.ExecuteReaderAsync(
-            new(
-                $"{EventsExt.SelectQuery} WHERE Id > @LastLocalId",
-                new SqliteParameter[] { new("@LastLocalId", request.LastLocalId) }
-            ),
-            ct
-        );
-
-        response.Events = (await reader.ReadEventsAsync(ct).ToEnumerableAsync()).ToArray();
 
         return response;
     }
@@ -147,20 +138,10 @@ public sealed class DbToDoService
 
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
-
         session.EditEntities(_gaiaValues.UserId.ToString(), idempotentId, editEntities.ToArray());
-
         Delete(session, idempotentId, request.DeleteIds);
+        response.Events = GetLastEvents(session, request.LastLocalId);
         session.Commit();
-
-        using var reader = session.ExecuteReader(
-            new(
-                $"{EventsExt.SelectQuery} WHERE Id > @LastLocalId",
-                new SqliteParameter[] { new("@LastLocalId", request.LastLocalId) }
-            )
-        );
-
-        response.Events = reader.ReadEvents().ToArray();
 
         return response;
     }
