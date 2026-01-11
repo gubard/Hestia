@@ -87,20 +87,21 @@ public sealed class DbToDoService
 
     protected override ConfiguredValueTaskAwaitable<HestiaPostResponse> ExecuteAsync(
         Guid idempotentId,
+        HestiaPostResponse response,
         HestiaPostRequest request,
         CancellationToken ct
     )
     {
-        return PostCore(idempotentId, request, ct).ConfigureAwait(false);
+        return PostCore(idempotentId, response, request, ct).ConfigureAwait(false);
     }
 
     private async ValueTask<HestiaPostResponse> PostCore(
         Guid idempotentId,
+        HestiaPostResponse response,
         HestiaPostRequest request,
         CancellationToken ct
     )
     {
-        var response = new HestiaPostResponse();
         Dictionary<Guid, FullToDo> fullDictionary = new();
         var editEntities = new List<EditToDoEntity>();
         var session = await Factory.CreateSessionAsync(ct);
@@ -1080,7 +1081,7 @@ public sealed class DbToDoService
 
     public async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
     {
-        await ExecuteAsync(Guid.NewGuid(), source, ct);
+        await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
     }
 
     public ConfiguredValueTaskAwaitable UpdateAsync(HestiaGetResponse source, CancellationToken ct)
@@ -1092,20 +1093,11 @@ public sealed class DbToDoService
     {
         await using var session = await Factory.CreateSessionAsync(ct);
         var entities = GetToDoEntities(source);
-        var ids = entities.Select(x => x.Id).ToArray();
 
         if (entities.Length == 0)
         {
             return;
         }
-
-        var deleteIds = await session.GetGuidAsync(
-            new(
-                ToDosExt.SelectIdsQuery + $" WHERE Id NOT IN ({ids.ToParameterNames("Id")})",
-                ids.ToSqliteParameters("Id")
-            ),
-            ct
-        );
 
         var exists = await session.IsExistsAsync(entities, ct);
 
@@ -1126,9 +1118,24 @@ public sealed class DbToDoService
             await session.ExecuteNonQueryAsync(query, ct);
         }
 
-        if (deleteIds.Length != 0)
+        if (source.Selectors is not null)
         {
-            await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(), ct);
+            var ids = source
+                .Selectors.SelectMany(x => GetToDoEntities(x).Select(y => y.Id))
+                .ToArray();
+
+            var deleteIds = await session.GetGuidAsync(
+                new(
+                    ToDosExt.SelectIdsQuery + $" WHERE Id NOT IN ({ids.ToParameterNames("Id")})",
+                    ids.ToSqliteParameters("Id")
+                ),
+                ct
+            );
+
+            if (deleteIds.Length != 0)
+            {
+                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(), ct);
+            }
         }
 
         await session.CommitAsync(ct);
@@ -1144,7 +1151,7 @@ public sealed class DbToDoService
             .Concat(source.Search.Select(x => x.Parameters.ToToDoEntity()))
             .Concat(source.Today.Select(x => x.Parameters.ToToDoEntity()))
             .Concat(
-                source.Selectors?.SelectMany(x => x.Children).Select(x => x.Item.ToToDoEntity())
+                source.Selectors?.SelectMany(x => GetToDoEntities(x))
                     ?? Enumerable.Empty<ToDoEntity>()
             )
             .Concat(source.Leafs.SelectMany(x => x.Value).Select(x => x.Parameters.ToToDoEntity()))
@@ -1160,5 +1167,18 @@ public sealed class DbToDoService
                     ?? Enumerable.Empty<ToDoEntity>()
             )
             .ToArray();
+    }
+
+    private static IEnumerable<ToDoEntity> GetToDoEntities(ToDoSelector selector)
+    {
+        foreach (var child in selector.Children)
+        {
+            yield return child.Item.ToToDoEntity();
+
+            foreach (var item in GetToDoEntities(child))
+            {
+                yield return item;
+            }
+        }
     }
 }
