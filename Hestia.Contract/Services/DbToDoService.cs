@@ -130,59 +130,6 @@ public sealed class DbToDoService
         return response;
     }
 
-    protected override HestiaPostResponse Execute(Guid idempotentId, HestiaPostRequest request)
-    {
-        var response = new HestiaPostResponse();
-        Dictionary<Guid, FullToDo> fullDictionary = new();
-        var editEntities = new List<EditToDoEntity>();
-        var session = Factory.CreateSession();
-        var options = _factoryOptions.Create();
-        Create(session, options, idempotentId, response, request.Creates);
-        Edit(request.Edits, editEntities);
-        ChangeOrder(session, request.ChangeOrder, response.ValidationErrors, editEntities);
-
-        var allItems = session
-            .GetToDos(ToDosExt.SelectQuery)
-            .ToDictionary(x => x.Id)
-            .ToFrozenDictionary();
-
-        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
-        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
-
-        session.EditEntities(
-            _gaiaValues.UserId.ToString(),
-            idempotentId,
-            options.IsUseEvents,
-            editEntities.ToArray()
-        );
-
-        Delete(session, options, idempotentId, request.DeleteIds);
-        session.Commit();
-
-        return response;
-    }
-
-    public override HestiaGetResponse Get(HestiaGetRequest request)
-    {
-        using var session = Factory.CreateSession();
-        var items = session.GetToDos(ToDosExt.SelectQuery);
-        var response = CreateGetResponse(request, items);
-
-        if (request.LastId != -1)
-        {
-            using var reader = session.ExecuteReader(
-                new(
-                    $"{EventsExt.SelectQuery} WHERE Id > @LastId",
-                    new SqliteParameter[] { new("@LastId", request.LastId) }
-                )
-            );
-
-            response.Events = reader.ReadEvents().ToArray();
-        }
-
-        return response;
-    }
-
     private void RandomizeChildrenOrderIndex(
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
@@ -648,21 +595,6 @@ public sealed class DbToDoService
         );
     }
 
-    private void Delete(DbSession session, DbServiceOptions options, Guid idempotentId, Guid[] ids)
-    {
-        if (ids.Length == 0)
-        {
-            return;
-        }
-
-        session.DeleteEntities(
-            _gaiaValues.UserId.ToString(),
-            idempotentId,
-            options.IsUseEvents,
-            ids
-        );
-    }
-
     private void ChangeOrder(
         DbSession session,
         ToDoChangeOrder[] changeOrders,
@@ -729,66 +661,6 @@ public sealed class DbToDoService
         {
             editEntities.AddRange(edit.ToEditToDoEntities());
         }
-    }
-
-    private void Create(
-        DbSession session,
-        DbServiceOptions options,
-        Guid idempotentId,
-        HestiaPostResponse response,
-        ShortToDo[] creates
-    )
-    {
-        if (creates.Length == 0)
-        {
-            return;
-        }
-
-        var adds = new List<ToDoEntity>();
-
-        foreach (var create in creates)
-        {
-            var errorCount = response.ValidationErrors.Count;
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create.Name, nameof(create.Name))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create.Description, nameof(create.Description))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.DueDate))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.Link))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.AnnuallyDays))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.MonthlyDays))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.WeeklyDays))
-            );
-            response.ValidationErrors.AddRange(
-                _toDoValidator.Validate(create, nameof(create.DaysOffset))
-            );
-            response.ValidationErrors.AddRange(_toDoValidator.Validate(create, "Reference"));
-
-            if (errorCount != response.ValidationErrors.Count)
-            {
-                continue;
-            }
-
-            adds.Add(create.ToToDoEntity());
-        }
-
-        session.AddEntities(
-            _gaiaValues.UserId.ToString(),
-            idempotentId,
-            options.IsUseEvents,
-            adds.ToArray()
-        );
     }
 
     private ConfiguredValueTaskAwaitable CreateAsync(
@@ -1211,11 +1083,6 @@ public sealed class DbToDoService
         await ExecuteAsync(Guid.NewGuid(), source, ct);
     }
 
-    public void Update(HestiaPostRequest source)
-    {
-        Execute(Guid.NewGuid(), source);
-    }
-
     public ConfiguredValueTaskAwaitable UpdateAsync(HestiaGetResponse source, CancellationToken ct)
     {
         return UpdateCore(source, ct).ConfigureAwait(false);
@@ -1225,11 +1092,20 @@ public sealed class DbToDoService
     {
         await using var session = await Factory.CreateSessionAsync(ct);
         var entities = GetToDoEntities(source);
+        var ids = entities.Select(x => x.Id).ToArray();
 
         if (entities.Length == 0)
         {
             return;
         }
+
+        var deleteIds = await session.GetGuidAsync(
+            new(
+                ToDosExt.SelectIdsQuery + $" WHERE Id NOT IN ({ids.ToParameterNames("Id")})",
+                ids.ToSqliteParameters("Id")
+            ),
+            ct
+        );
 
         var exists = await session.IsExistsAsync(entities, ct);
 
@@ -1250,39 +1126,12 @@ public sealed class DbToDoService
             await session.ExecuteNonQueryAsync(query, ct);
         }
 
+        if (deleteIds.Length != 0)
+        {
+            await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(), ct);
+        }
+
         await session.CommitAsync(ct);
-    }
-
-    public void Update(HestiaGetResponse source)
-    {
-        using var session = Factory.CreateSession();
-        var entities = GetToDoEntities(source);
-
-        if (entities.Length == 0)
-        {
-            return;
-        }
-
-        var exists = session.IsExists(entities);
-
-        var updateQueries = entities
-            .Where(x => exists.Contains(x.Id))
-            .Select(x => x.CreateUpdateToDosQuery())
-            .ToArray();
-
-        var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
-
-        if (inserts.Length != 0)
-        {
-            session.ExecuteNonQuery(inserts.CreateInsertQuery());
-        }
-
-        foreach (var query in updateQueries)
-        {
-            session.ExecuteNonQuery(query);
-        }
-
-        session.Commit();
     }
 
     private static ToDoEntity[] GetToDoEntities(HestiaGetResponse source)
