@@ -25,9 +25,12 @@ public interface IDbToDoService
     : IToDoService,
         IDbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
+public interface IToDoDbCache : IDbCache<HestiaPostRequest, HestiaGetResponse>;
+
 public sealed class DbToDoService
     : DbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>,
-        IDbToDoService
+        IDbToDoService,
+        IToDoDbCache
 {
     private readonly GaiaValues _gaiaValues;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
@@ -1196,5 +1199,117 @@ public sealed class DbToDoService
         {
             yield return item;
         }
+    }
+
+    public ConfiguredValueTaskAwaitable UpdateAsync(HestiaPostRequest source, CancellationToken ct)
+    {
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
+    {
+        await ExecuteAsync(Guid.NewGuid(), source, ct);
+    }
+
+    public void Update(HestiaPostRequest source)
+    {
+        Execute(Guid.NewGuid(), source);
+    }
+
+    public ConfiguredValueTaskAwaitable UpdateAsync(HestiaGetResponse source, CancellationToken ct)
+    {
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)
+    {
+        await using var session = await Factory.CreateSessionAsync(ct);
+        var entities = GetToDoEntities(source);
+
+        if (entities.Length == 0)
+        {
+            return;
+        }
+
+        var exists = await session.IsExistsAsync(entities, ct);
+
+        var updateQueries = entities
+            .Where(x => exists.Contains(x.Id))
+            .Select(x => x.CreateUpdateToDosQuery())
+            .ToArray();
+
+        var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
+
+        if (inserts.Length != 0)
+        {
+            await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(), ct);
+        }
+
+        foreach (var query in updateQueries)
+        {
+            await session.ExecuteNonQueryAsync(query, ct);
+        }
+
+        await session.CommitAsync(ct);
+    }
+
+    public void Update(HestiaGetResponse source)
+    {
+        using var session = Factory.CreateSession();
+        var entities = GetToDoEntities(source);
+
+        if (entities.Length == 0)
+        {
+            return;
+        }
+
+        var exists = session.IsExists(entities);
+
+        var updateQueries = entities
+            .Where(x => exists.Contains(x.Id))
+            .Select(x => x.CreateUpdateToDosQuery())
+            .ToArray();
+
+        var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
+
+        if (inserts.Length != 0)
+        {
+            session.ExecuteNonQuery(inserts.CreateInsertQuery());
+        }
+
+        foreach (var query in updateQueries)
+        {
+            session.ExecuteNonQuery(query);
+        }
+
+        session.Commit();
+    }
+
+    private static ToDoEntity[] GetToDoEntities(HestiaGetResponse source)
+    {
+        return source
+            .Children.SelectMany(x => x.Value)
+            .Select(x => x.Parameters.ToToDoEntity())
+            .Concat(source.Parents.SelectMany(x => x.Value).Select(x => x.ToToDoEntity()))
+            .Concat(source.Items.Select(x => x.Parameters.ToToDoEntity()))
+            .Concat(source.Search.Select(x => x.Parameters.ToToDoEntity()))
+            .Concat(source.Today.Select(x => x.Parameters.ToToDoEntity()))
+            .Concat(
+                source.Selectors?.SelectMany(x => x.Children).Select(x => x.Item.ToToDoEntity())
+                    ?? Enumerable.Empty<ToDoEntity>()
+            )
+            .Concat(source.Leafs.SelectMany(x => x.Value).Select(x => x.Parameters.ToToDoEntity()))
+            .Concat(
+                source.Favorites?.Select(x => x.Parameters.ToToDoEntity())
+                    ?? Enumerable.Empty<ToDoEntity>()
+            )
+            .Concat(
+                source.Bookmarks?.Select(x => x.ToToDoEntity()) ?? Enumerable.Empty<ToDoEntity>()
+            )
+            .Concat(
+                source.Roots?.Select(x => x.Parameters.ToToDoEntity())
+                    ?? Enumerable.Empty<ToDoEntity>()
+            )
+            .ToArray();
     }
 }
