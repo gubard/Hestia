@@ -108,7 +108,14 @@ public sealed class DbToDoService
         var options = _factoryOptions.Create();
         await CreateAsync(session, options, idempotentId, response, request.Creates, ct);
         Edit(request.Edits, editEntities);
-        ChangeOrder(session, request.ChangeOrder, response.ValidationErrors, editEntities);
+
+        await ChangeOrderAsync(
+            session,
+            request.ChangeOrder,
+            response.ValidationErrors,
+            editEntities,
+            ct
+        );
 
         var allItems = (await session.GetToDosAsync(ToDosExt.SelectQuery, ct))
             .ToDictionary(x => x.Id)
@@ -596,11 +603,12 @@ public sealed class DbToDoService
         );
     }
 
-    private void ChangeOrder(
+    private async ValueTask ChangeOrderAsync(
         DbSession session,
         ToDoChangeOrder[] changeOrders,
         List<ValidationError> errors,
-        List<EditToDoEntity> editEntities
+        List<EditToDoEntity> editEntities,
+        CancellationToken ct
     )
     {
         if (changeOrders.Length == 0)
@@ -609,13 +617,13 @@ public sealed class DbToDoService
         }
 
         var insertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToArray();
-        var insertItems = session.GetToDos(insertIds);
+        var insertItems = await session.GetToDosAsync(insertIds, ct);
         var insertItemsDictionary = insertItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var startIds = changeOrders.Select(x => x.StartId).Distinct().ToArray();
-        var startItems = session.GetToDos(startIds);
+        var startItems = await session.GetToDosAsync(startIds, ct);
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var parentItems = startItems.Select(x => x.ParentId).WhereNotNull().Distinct().ToArray();
-        var siblings = session.GetToDos(parentItems);
+        var siblings = await session.GetToDosAsync(parentItems, ct);
 
         for (var index = 0; index < changeOrders.Length; index++)
         {
