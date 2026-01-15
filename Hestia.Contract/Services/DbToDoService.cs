@@ -672,7 +672,7 @@ public sealed class DbToDoService
         }
     }
 
-    private ConfiguredValueTaskAwaitable CreateAsync(
+    private async ValueTask CreateAsync(
         DbSession session,
         DbServiceOptions options,
         Guid idempotentId,
@@ -683,7 +683,7 @@ public sealed class DbToDoService
     {
         if (creates.Length == 0)
         {
-            return TaskHelper.ConfiguredCompletedTask;
+            return;
         }
 
         var adds = new List<ToDoEntity>();
@@ -725,7 +725,32 @@ public sealed class DbToDoService
             adds.Add(create.ToToDoEntity());
         }
 
-        return session.AddEntitiesAsync(
+        foreach (var add in adds)
+        {
+            var siblingCount = 0;
+
+            if (add.ParentId is null)
+            {
+                siblingCount = await session.ExecuteScalarInt32Async(
+                    new(ToDosExt.SelectCountQuery + " WHERE ParentId IS NULL"),
+                    ct
+                );
+            }
+            else
+            {
+                siblingCount = await session.ExecuteScalarInt32Async(
+                    new(
+                        ToDosExt.SelectCountQuery + " WHERE ParentId = @ParentId",
+                        new SqliteParameter("@ParentId", add.ParentId)
+                    ),
+                    ct
+                );
+            }
+
+            add.OrderIndex = (uint)siblingCount + 1;
+        }
+
+        await session.AddEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
