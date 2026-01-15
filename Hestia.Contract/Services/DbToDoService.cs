@@ -44,7 +44,7 @@ public sealed class DbToDoService
         IToDoValidator toDoValidator,
         IFactory<DbServiceOptions> factoryOptions
     )
-        : base(factory)
+        : base(factory, nameof(ToDoEntity))
     {
         _gaiaValues = gaiaValues;
         _toDoParametersFillerService = toDoParametersFillerService;
