@@ -616,20 +616,41 @@ public sealed class DbToDoService
             return;
         }
 
-        var insertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToArray();
-        var insertItems = await session.GetToDosAsync(insertIds, ct);
+        var allInsertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToArray();
+        var insertItems = await session.GetToDosAsync(allInsertIds, ct);
         var insertItemsDictionary = insertItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var startIds = changeOrders.Select(x => x.StartId).Distinct().ToArray();
         var startItems = await session.GetToDosAsync(startIds, ct);
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
         var parentItems = startItems.Select(x => x.ParentId).WhereNotNull().Distinct().ToArray();
-        var siblings = await session.GetToDosAsync(parentItems, ct);
+
+        var allSiblings = await session.GetToDosAsync(
+            new SqlQuery(
+                ToDosExt.SelectQuery
+                    + $" WHERE ParentId IN ({parentItems.ToParameterNames("ParentId")})",
+                parentItems.ToSqliteParameters("ParentId")
+            ),
+            ct
+        );
+
+        if (startItems.Any(x => x.ParentId is null))
+        {
+            var siblingsRoots = await session.GetToDosAsync(
+                ToDosExt.SelectQuery + " WHERE ParentId IS NULL",
+                ct
+            );
+
+            allSiblings = allSiblings.Concat(siblingsRoots).ToArray();
+        }
 
         for (var index = 0; index < changeOrders.Length; index++)
         {
             var changeOrder = changeOrders[index];
 
-            var inserts = changeOrder.InsertIds.Select(x => insertItemsDictionary[x]).ToFrozenSet();
+            var inserts = changeOrder
+                .InsertIds.Select(x => insertItemsDictionary[x])
+                .OrderBy(x => x.OrderIndex)
+                .ToFrozenSet();
 
             if (!startItemsDictionary.TryGetValue(changeOrder.StartId, out var item))
             {
@@ -638,28 +659,31 @@ public sealed class DbToDoService
                 continue;
             }
 
-            var startIndex = changeOrder.IsAfter ? item.OrderIndex + 1 : item.OrderIndex;
-            var items = siblings.Where(x => x.ParentId == item.ParentId).OrderBy(x => x.OrderIndex);
+            var siblings = allSiblings
+                .Where(x => x.ParentId == item.ParentId && !changeOrder.InsertIds.Contains(x.Id))
+                .OrderBy(x => x.OrderIndex)
+                .ToList();
 
-            var usedItems = changeOrder.IsAfter
-                ? items.Where(x => x.OrderIndex > item.OrderIndex)
-                : items.Where(x => x.OrderIndex >= item.OrderIndex);
+            var startItem = siblings.First(x => x.Id == changeOrder.StartId);
+            var startIndex = siblings.IndexOf(startItem);
+            siblings.InsertRange(changeOrder.IsAfter ? startIndex + 1 : startIndex, inserts);
 
-            var newOrder = inserts
-                .Concat(usedItems.Where(x => !insertIds.Contains(x.Id)))
-                .ToFrozenSet();
-
-            foreach (var newItem in newOrder)
+            for (var i = 0; i < siblings.Count; i++)
             {
-                editEntities.Add(
-                    new(newItem.Id)
-                    {
-                        IsEditOrderIndex = startIndex != newItem.OrderIndex,
-                        OrderIndex = startIndex++,
-                        IsEditParentId = newItem.ParentId != item.ParentId,
-                        ParentId = item.ParentId,
-                    }
-                );
+                var edit = new EditToDoEntity(siblings[i].Id)
+                {
+                    IsEditOrderIndex = siblings[i].OrderIndex != i + 1,
+                    OrderIndex = (uint)i + 1,
+                    IsEditParentId = siblings[i].ParentId != startItem.ParentId,
+                    ParentId = item.ParentId,
+                };
+
+                if (edit is { IsEditOrderIndex: false, IsEditParentId: false })
+                {
+                    continue;
+                }
+
+                editEntities.Add(edit);
             }
         }
     }
