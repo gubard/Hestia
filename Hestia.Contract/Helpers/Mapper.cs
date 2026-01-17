@@ -12,6 +12,9 @@ public static class Mapper
         {
             yield return new(id)
             {
+                IsEditNormalizeName = edit.IsEditName,
+                NormalizeName = edit.Name.ToUpperInvariant(),
+
                 IsEditName = edit.IsEditName,
                 Name = edit.Name,
 
@@ -191,6 +194,7 @@ public static class Mapper
             ReferenceId = entity.ReferenceId,
             ParentId = entity.ParentId,
             RemindDaysBefore = entity.RemindDaysBefore,
+            NormalizeName = entity.Name.ToUpperInvariant(),
         };
     }
 

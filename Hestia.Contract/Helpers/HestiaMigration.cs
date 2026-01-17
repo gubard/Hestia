@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS ToDos (
 );
 "
             },
+            { 7, "UPDATE ToDos SET NormalizeName = UPPER(Name);" },
         }.ToFrozenDictionary();
     }
 }

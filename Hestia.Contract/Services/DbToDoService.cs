@@ -751,7 +751,7 @@ public sealed class DbToDoService
 
         foreach (var add in adds)
         {
-            var siblingCount = 0;
+            int siblingCount;
 
             if (add.ParentId is null)
             {
