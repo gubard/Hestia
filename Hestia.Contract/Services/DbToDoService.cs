@@ -622,7 +622,12 @@ public sealed class DbToDoService
         var startIds = changeOrders.Select(x => x.StartId).Distinct().ToArray();
         var startItems = await session.GetToDosAsync(startIds, ct);
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
-        var parentItems = startItems.Select(x => x.ParentId).WhereNotNull().Distinct().ToArray();
+
+        var parentItems = startItems
+            .Select(x => x.ParentId)
+            .WhereNotNullStruct()
+            .Distinct()
+            .ToArray();
 
         var allSiblings = await session.GetToDosAsync(
             new SqlQuery(
