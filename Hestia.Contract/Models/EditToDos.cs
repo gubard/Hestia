@@ -49,7 +49,6 @@ public class EditToDos
     public bool IsEditDescriptionType { get; set; }
     public bool IsEditIcon { get; set; }
     public bool IsEditColor { get; set; }
-    public bool IsEditReference { get; set; }
     public bool IsEditRemindDaysBefore { get; set; }
     public bool IsEditParentId { get; set; }
     public bool IsEditReferenceId { get; set; }
