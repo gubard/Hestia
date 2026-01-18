@@ -1191,7 +1191,13 @@ public sealed class DbToDoService
 
             if (deleteIds.Length != 0)
             {
-                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(), ct);
+                foreach (var deleteId in deleteIds)
+                {
+                    await session.TryExecuteNonQueryAsync(
+                        new[] { deleteId }.CreateDeleteToDosQuery(),
+                        ct
+                    );
+                }
             }
         }
 
