@@ -1165,14 +1165,14 @@ public sealed class DbToDoService
 
         var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
 
-        if (inserts.Length != 0)
+        foreach (var insert in inserts)
         {
-            await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(), ct);
+            await session.TryExecuteNonQueryAsync(new[] { insert }.CreateInsertQuery(), ct);
         }
 
         foreach (var query in updateQueries)
         {
-            await session.ExecuteNonQueryAsync(query, ct);
+            await session.TryExecuteNonQueryAsync(query, ct);
         }
 
         if (source.Selectors is not null)
@@ -1189,15 +1189,12 @@ public sealed class DbToDoService
                 ct
             );
 
-            if (deleteIds.Length != 0)
+            foreach (var deleteId in deleteIds)
             {
-                foreach (var deleteId in deleteIds)
-                {
-                    await session.TryExecuteNonQueryAsync(
-                        new[] { deleteId }.CreateDeleteToDosQuery(),
-                        ct
-                    );
-                }
+                await session.TryExecuteNonQueryAsync(
+                    new[] { deleteId }.CreateDeleteToDosQuery(),
+                    ct
+                );
             }
         }
 
