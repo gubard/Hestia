@@ -32,11 +32,6 @@ public sealed class DbToDoService
         IDbToDoService,
         IToDoDbCache
 {
-    private readonly GaiaValues _gaiaValues;
-    private readonly ToDoParametersFillerService _toDoParametersFillerService;
-    private readonly IToDoValidator _toDoValidator;
-    private readonly IFactory<DbServiceOptions> _factoryOptions;
-
     public DbToDoService(
         IDbConnectionFactory factory,
         GaiaValues gaiaValues,
@@ -58,6 +53,87 @@ public sealed class DbToDoService
     )
     {
         return GetCore(request, ct).ConfigureAwait(false);
+    }
+
+    protected override ConfiguredValueTaskAwaitable<HestiaPostResponse> ExecuteAsync(
+        Guid idempotentId,
+        HestiaPostResponse response,
+        HestiaPostRequest request,
+        CancellationToken ct
+    )
+    {
+        return PostCore(idempotentId, response, request, ct).ConfigureAwait(false);
+    }
+
+    private readonly GaiaValues _gaiaValues;
+    private readonly ToDoParametersFillerService _toDoParametersFillerService;
+    private readonly IToDoValidator _toDoValidator;
+    private readonly IFactory<DbServiceOptions> _factoryOptions;
+
+    private async ValueTask UpdateChildrenOrderIndexAsync(
+        FrozenDictionary<Guid, ToDoEntity> allEntities,
+        HestiaPostRequest request,
+        Guid idempotentId,
+        CancellationToken ct
+    )
+    {
+        var session = await Factory.CreateSessionAsync(ct);
+        var options = _factoryOptions.Create();
+        var result = new List<EditToDoEntity>();
+
+        var sibling = request
+            .ChangeOrder.Select(y => y.InsertIds)
+            .SelectMany(x => x)
+            .Concat(request.DeleteIds)
+            .Concat(
+                request
+                    .Edits.Where(x => x.IsEditParentId)
+                    .Select(x => x.ParentId.HasValue ? x.Ids.Concat([x.ParentId.Value]) : x.Ids)
+                    .SelectMany(x => x)
+            )
+            .Distinct()
+            .ToArray();
+
+        if (sibling.Length == 0)
+        {
+            return;
+        }
+
+        var ids = allEntities
+            .Values.Where(x => sibling.Contains(x.Id))
+            .Select(x => x.ParentId)
+            .Distinct()
+            .ToArray();
+
+        foreach (var id in ids)
+        {
+            var children = allEntities
+                .Values.Where(x => x.ParentId == id)
+                .OrderBy(x => x.OrderIndex)
+                .ToArray();
+
+            for (var index = 0; index < children.Length; index++)
+            {
+                var child = children[index];
+
+                if (child.OrderIndex == (uint)index + 1)
+                {
+                    continue;
+                }
+
+                result.Add(new(child.Id) { IsEditOrderIndex = true, OrderIndex = (uint)index + 1 });
+            }
+        }
+
+        await session.EditEntitiesAsync(
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            result.ToArray(),
+            ct
+        );
+
+        await session.CommitAsync(ct);
     }
 
     private async ValueTask<HestiaGetResponse> GetCore(
@@ -85,16 +161,6 @@ public sealed class DbToDoService
         return response;
     }
 
-    protected override ConfiguredValueTaskAwaitable<HestiaPostResponse> ExecuteAsync(
-        Guid idempotentId,
-        HestiaPostResponse response,
-        HestiaPostRequest request,
-        CancellationToken ct
-    )
-    {
-        return PostCore(idempotentId, response, request, ct).ConfigureAwait(false);
-    }
-
     private async ValueTask<HestiaPostResponse> PostCore(
         Guid idempotentId,
         HestiaPostResponse response,
@@ -108,7 +174,6 @@ public sealed class DbToDoService
         var options = _factoryOptions.Create();
         await CreateAsync(session, options, idempotentId, response, request.Creates, ct);
         Edit(request.Edits, edits);
-
         await ChangeOrderAsync(session, request.ChangeOrder, response.ValidationErrors, edits, ct);
 
         var allItems = (await session.GetToDosAsync(ToDosExt.SelectQuery, ct))
@@ -128,6 +193,7 @@ public sealed class DbToDoService
 
         await DeleteAsync(session, options, idempotentId, request.DeleteIds, allItems, edits, ct);
         await session.CommitAsync(ct);
+        await UpdateChildrenOrderIndexAsync(allItems, request, idempotentId, ct);
 
         return response;
     }
@@ -376,6 +442,7 @@ public sealed class DbToDoService
                         onlyCompletedTasks,
                         edits
                     );
+
                     continue;
                 case ToDoType.FixedDate:
                 case ToDoType.Periodicity:
@@ -405,9 +472,11 @@ public sealed class DbToDoService
             case ToDoType.FixedDate:
             case ToDoType.Periodicity:
                 AddPeriodicity(item, edits);
+
                 return;
             case ToDoType.PeriodicityOffset:
                 AddPeriodicityOffset(item, edits);
+
                 return;
             case ToDoType.Reference:
                 if (!item.ReferenceId.HasValue)
@@ -457,6 +526,7 @@ public sealed class DbToDoService
                     : currentDueDate.AddDays(
                         7 - (int)dayOfWeek + (int)daysOfWeek.First().ThrowIfNullStruct()
                     );
+
                 break;
             }
             case TypeOfPeriodicity.Monthly:
