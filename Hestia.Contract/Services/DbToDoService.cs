@@ -132,7 +132,16 @@ public sealed class DbToDoService
             ct
         );
 
-        await DeleteAsync(session, options, idempotentId, request.DeleteIds, editEntities, ct);
+        await DeleteAsync(
+            session,
+            options,
+            idempotentId,
+            request.DeleteIds,
+            allItems,
+            editEntities,
+            ct
+        );
+
         await session.CommitAsync(ct);
 
         return response;
@@ -581,44 +590,62 @@ public sealed class DbToDoService
         }
     }
 
-    private async ValueTask DeleteAsync(
+    private ConfiguredValueTaskAwaitable DeleteAsync(
         DbSession session,
         DbServiceOptions options,
         Guid idempotentId,
         Guid[] ids,
+        FrozenDictionary<Guid, ToDoEntity> allItems,
         List<EditToDoEntity> editToDoEntities,
         CancellationToken ct
     )
     {
         if (ids.Length == 0)
         {
-            return;
+            return TaskHelper.ConfiguredCompletedTask;
         }
 
-        var allIds = await session.GetGuidAsync(CreateSqlForAllChildrenIds(ids), ct);
-        var deletedIds = ids.Concat(allIds).Distinct().ToArray();
+        var allIds = GetChildrenIds(allItems, ids).ToArray();
 
-        var referenceIds = await session.GetGuidAsync(
-            new(
-                ToDosExt.SelectIdsQuery
-                    + $" WHERE ReferenceId IN ({deletedIds.ToParameterNames("ReferenceId")})",
-                deletedIds.ToSqliteParameters("ReferenceId")
-            ),
-            ct
-        );
+        var referenceIds = allItems
+            .Values.Where(x => x.ReferenceId.HasValue && allIds.Contains(x.ReferenceId.Value))
+            .Select(x => x.Id)
+            .Distinct()
+            .ToArray();
 
         foreach (var referenceId in referenceIds)
         {
             editToDoEntities.Add(new(referenceId) { IsEditReferenceId = true, ReferenceId = null });
         }
 
-        await session.DeleteEntitiesAsync(
+        return session.DeleteEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
-            deletedIds,
+            allIds,
             ct
         );
+    }
+
+    private IEnumerable<Guid> GetChildrenIds(
+        FrozenDictionary<Guid, ToDoEntity> allItems,
+        Guid[] ids
+    )
+    {
+        foreach (var id in ids)
+        {
+            yield return id;
+
+            var childrenIds = allItems
+                .Where(x => x.Value.ParentId == id)
+                .Select(x => x.Key)
+                .ToArray();
+
+            foreach (var childId in childrenIds)
+            {
+                yield return childId;
+            }
+        }
     }
 
     private async ValueTask ChangeOrderAsync(
