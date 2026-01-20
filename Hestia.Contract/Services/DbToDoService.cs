@@ -55,6 +55,73 @@ public sealed class DbToDoService
         return GetCore(request, ct).ConfigureAwait(false);
     }
 
+    public ConfiguredValueTaskAwaitable UpdateAsync(HestiaPostRequest source, CancellationToken ct)
+    {
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
+    {
+        await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
+    }
+
+    public ConfiguredValueTaskAwaitable UpdateAsync(HestiaGetResponse source, CancellationToken ct)
+    {
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    private async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)
+    {
+        await using var session = await Factory.CreateSessionAsync(ct);
+        var entities = GetToDoEntities(source);
+
+        if (entities.Length == 0)
+        {
+            return;
+        }
+
+        var exists = await session.IsExistsAsync(entities, ct);
+
+        var updateQueries = entities
+            .Where(x => exists.Contains(x.Id))
+            .Select(x => x.CreateUpdateToDosQuery())
+            .ToArray();
+
+        var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
+
+        if (inserts.Length != 0)
+        {
+            await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(), ct);
+        }
+
+        foreach (var query in updateQueries)
+        {
+            await session.ExecuteNonQueryAsync(query, ct);
+        }
+
+        if (source.Selectors is not null)
+        {
+            var ids = source
+                .Selectors.SelectMany(x => GetToDoEntities(x).Select(y => y.Id))
+                .ToArray();
+
+            var deleteIds = await session.GetGuidAsync(
+                new(
+                    ToDosExt.SelectIdsQuery + $" WHERE Id NOT IN ({ids.ToParameterNames("Id")})",
+                    ids.ToSqliteParameters("Id")
+                ),
+                ct
+            );
+
+            if (deleteIds.Length != 0)
+            {
+                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(), ct);
+            }
+        }
+
+        await session.CommitAsync(ct);
+    }
+
     protected override ConfiguredValueTaskAwaitable<HestiaPostResponse> ExecuteAsync(
         Guid idempotentId,
         HestiaPostResponse response,
@@ -77,7 +144,7 @@ public sealed class DbToDoService
         CancellationToken ct
     )
     {
-        var session = await Factory.CreateSessionAsync(ct);
+        await using var session = await Factory.CreateSessionAsync(ct);
         var options = _factoryOptions.Create();
         var result = new List<EditToDoEntity>();
 
@@ -86,10 +153,7 @@ public sealed class DbToDoService
             .SelectMany(x => x)
             .Concat(request.DeleteIds)
             .Concat(
-                request
-                    .Edits.Where(x => x.IsEditParentId)
-                    .Select(x => x.ParentId.HasValue ? x.Ids.Concat([x.ParentId.Value]) : x.Ids)
-                    .SelectMany(x => x)
+                request.Edits.Where(x => x.IsEditParentId).Select(x => x.Ids).SelectMany(x => x)
             )
             .Distinct()
             .ToArray();
@@ -102,6 +166,8 @@ public sealed class DbToDoService
         var ids = allEntities
             .Values.Where(x => sibling.Contains(x.Id))
             .Select(x => x.ParentId)
+            .Concat(request.Clones.Select(x => x.ParentId))
+            .Concat(request.Edits.Where(x => x.IsEditParentId).Select(x => x.ParentId))
             .Distinct()
             .ToArray();
 
@@ -168,18 +234,19 @@ public sealed class DbToDoService
         CancellationToken ct
     )
     {
-        Dictionary<Guid, FullToDo> fullDictionary = new();
+        var fullDictionary = new Dictionary<Guid, FullToDo>();
         var edits = new AutoDictionary<Guid, EditToDoEntity>();
-        var session = await Factory.CreateSessionAsync(ct);
+        await using var session = await Factory.CreateSessionAsync(ct);
         var options = _factoryOptions.Create();
         await CreateAsync(session, options, idempotentId, response, request.Creates, ct);
-        Edit(request.Edits, edits);
-        await ChangeOrderAsync(session, request.ChangeOrder, response.ValidationErrors, edits, ct);
 
         var allItems = (await session.GetToDosAsync(ToDosExt.SelectQuery, ct))
             .ToDictionary(x => x.Id)
             .ToFrozenDictionary();
 
+        await CloneItemsAsync(session, options, idempotentId, allItems, request.Clones, ct);
+        Edit(request.Edits, edits);
+        await ChangeOrderAsync(session, request.ChangeOrder, response.ValidationErrors, edits, ct);
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, edits);
 
@@ -198,6 +265,55 @@ public sealed class DbToDoService
         return response;
     }
 
+    private ConfiguredValueTaskAwaitable CloneItemsAsync(
+        DbSession session,
+        DbServiceOptions options,
+        Guid idempotentId,
+        FrozenDictionary<Guid, ToDoEntity> allEntities,
+        CloneToDoItem[] cloneItems,
+        CancellationToken ct
+    )
+    {
+        var items = cloneItems
+            .Select(x =>
+                x.CloneIds.Select(y => Clone(allEntities, allEntities[y], x.ParentId))
+                    .SelectMany(y => y)
+            )
+            .SelectMany(x => x)
+            .ToArray();
+
+        return session.AddEntitiesAsync(
+            _gaiaValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            items,
+            ct
+        );
+    }
+
+    private IEnumerable<ToDoEntity> Clone(
+        FrozenDictionary<Guid, ToDoEntity> allEntities,
+        ToDoEntity entity,
+        Guid? parentId
+    )
+    {
+        var clone = allEntities[entity.Id].ToToDoShort().ToToDoEntity();
+        clone.Id = Guid.NewGuid();
+        clone.ParentId = parentId;
+
+        yield return clone;
+
+        var children = allEntities.Values.Where(x => x.ParentId == entity.Id).ToArray();
+
+        foreach (var child in children)
+        {
+            foreach (var cloneChild in Clone(allEntities, child, clone.Id))
+            {
+                yield return cloneChild;
+            }
+        }
+    }
+
     private void RandomizeChildrenOrderIndex(
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
@@ -207,16 +323,19 @@ public sealed class DbToDoService
         foreach (var id in ids)
         {
             var children = allEntities.Values.Where(x => x.ParentId == id).ToArray();
-
-            foreach (var child in children)
-            {
-                child.OrderIndex = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4));
-            }
+            var newOrder = new Dictionary<Guid, uint>();
 
             for (var index = 0; index < children.Length; index++)
             {
                 var child = children[index];
-                var edit = edits.GetItem(child.Id);
+                newOrder[child.Id] = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4));
+            }
+
+            var newIds = newOrder.OrderBy(x => x.Value).Select(x => x.Key).ToArray();
+
+            for (var index = 0; index < newIds.Length; index++)
+            {
+                var edit = edits.GetItem(newIds[index]);
                 edit.IsEditOrderIndex = true;
                 edit.OrderIndex = (uint)index + 1;
             }
@@ -1212,76 +1331,6 @@ public sealed class DbToDoService
         }
     }
 
-    public ConfiguredValueTaskAwaitable UpdateAsync(HestiaPostRequest source, CancellationToken ct)
-    {
-        return UpdateCore(source, ct).ConfigureAwait(false);
-    }
-
-    public async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
-    {
-        await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
-    }
-
-    public ConfiguredValueTaskAwaitable UpdateAsync(HestiaGetResponse source, CancellationToken ct)
-    {
-        return UpdateCore(source, ct).ConfigureAwait(false);
-    }
-
-    public async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)
-    {
-        await using var session = await Factory.CreateSessionAsync(ct);
-        var entities = GetToDoEntities(source);
-
-        if (entities.Length == 0)
-        {
-            return;
-        }
-
-        var exists = await session.IsExistsAsync(entities, ct);
-
-        var updateQueries = entities
-            .Where(x => exists.Contains(x.Id))
-            .Select(x => x.CreateUpdateToDosQuery())
-            .ToArray();
-
-        var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
-
-        foreach (var insert in inserts)
-        {
-            await session.TryExecuteNonQueryAsync(new[] { insert }.CreateInsertQuery(), ct);
-        }
-
-        foreach (var query in updateQueries)
-        {
-            await session.TryExecuteNonQueryAsync(query, ct);
-        }
-
-        if (source.Selectors is not null)
-        {
-            var ids = source
-                .Selectors.SelectMany(x => GetToDoEntities(x).Select(y => y.Id))
-                .ToArray();
-
-            var deleteIds = await session.GetGuidAsync(
-                new(
-                    ToDosExt.SelectIdsQuery + $" WHERE Id NOT IN ({ids.ToParameterNames("Id")})",
-                    ids.ToSqliteParameters("Id")
-                ),
-                ct
-            );
-
-            foreach (var deleteId in deleteIds)
-            {
-                await session.TryExecuteNonQueryAsync(
-                    new[] { deleteId }.CreateDeleteToDosQuery(),
-                    ct
-                );
-            }
-        }
-
-        await session.CommitAsync(ct);
-    }
-
     private static ToDoEntity[] GetToDoEntities(HestiaGetResponse source)
     {
         return source
@@ -1307,44 +1356,21 @@ public sealed class DbToDoService
                 source.Roots?.Select(x => x.Parameters.ToToDoEntity())
                     ?? Enumerable.Empty<ToDoEntity>()
             )
+            .GroupBy(x => x.Id)
+            .Select(x => x.First())
             .ToArray();
     }
 
     private static IEnumerable<ToDoEntity> GetToDoEntities(ToDoSelector selector)
     {
+        yield return selector.Item.ToToDoEntity();
+
         foreach (var child in selector.Children)
         {
-            yield return child.Item.ToToDoEntity();
-
             foreach (var item in GetToDoEntities(child))
             {
                 yield return item;
             }
         }
-    }
-
-    private SqlQuery CreateSqlForAllChildrenIds(Guid[] ids)
-    {
-        return new(
-            $$"""
-            WITH RECURSIVE hierarchy(
-                     Id
-                 ) AS (
-                     SELECT
-                     Id
-                     FROM ToDos
-                     WHERE Id IN ({{ids.ToParameterNames("Id")}})
-
-                     UNION ALL
-
-                     SELECT
-                     t.Id
-                     FROM ToDos t
-                     INNER JOIN hierarchy h ON t.ParentId = h.Id
-                 )
-                 SELECT * FROM hierarchy
-            """,
-            ids.ToSqliteParameters("Id")
-        );
     }
 }
