@@ -132,7 +132,7 @@ public sealed class DbToDoService
             ct
         );
 
-        await DeleteAsync(session, options, idempotentId, request.DeleteIds, ct);
+        await DeleteAsync(session, options, idempotentId, request.DeleteIds, editEntities, ct);
         await session.CommitAsync(ct);
 
         return response;
@@ -581,24 +581,42 @@ public sealed class DbToDoService
         }
     }
 
-    private ConfiguredValueTaskAwaitable DeleteAsync(
+    private async ValueTask DeleteAsync(
         DbSession session,
         DbServiceOptions options,
         Guid idempotentId,
         Guid[] ids,
+        List<EditToDoEntity> editToDoEntities,
         CancellationToken ct
     )
     {
         if (ids.Length == 0)
         {
-            return TaskHelper.ConfiguredCompletedTask;
+            return;
         }
 
-        return session.DeleteEntitiesAsync(
+        var allIds = await session.GetGuidAsync(CreateSqlForAllChildrenIds(ids), ct);
+        var deletedIds = ids.Concat(allIds).Distinct().ToArray();
+
+        var referenceIds = await session.GetGuidAsync(
+            new(
+                ToDosExt.SelectIdsQuery
+                    + $" WHERE ReferenceId IN ({deletedIds.ToParameterNames("ReferenceId")})",
+                deletedIds.ToSqliteParameters("ReferenceId")
+            ),
+            ct
+        );
+
+        foreach (var referenceId in referenceIds)
+        {
+            editToDoEntities.Add(new(referenceId) { IsEditReferenceId = true, ReferenceId = null });
+        }
+
+        await session.DeleteEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
-            ids,
+            deletedIds,
             ct
         );
     }
@@ -1245,5 +1263,30 @@ public sealed class DbToDoService
                 yield return item;
             }
         }
+    }
+
+    private SqlQuery CreateSqlForAllChildrenIds(Guid[] ids)
+    {
+        return new(
+            $$"""
+            WITH RECURSIVE hierarchy(
+                     Id
+                 ) AS (
+                     SELECT
+                     Id
+                     FROM ToDos
+                     WHERE Id IN ({{ids.ToParameterNames("Id")}})
+
+                     UNION ALL
+
+                     SELECT
+                     t.Id
+                     FROM ToDos t
+                     INNER JOIN hierarchy h ON t.ParentId = h.Id
+                 )
+                 SELECT * FROM hierarchy
+            """,
+            ids.ToSqliteParameters("Id")
+        );
     }
 }

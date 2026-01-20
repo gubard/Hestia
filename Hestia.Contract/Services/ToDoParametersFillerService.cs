@@ -84,14 +84,18 @@ public class ToDoParametersFillerService
     {
         if (entity.Type == ToDoType.Reference)
         {
-            if (entity.ReferenceId.HasValue && entity.ReferenceId.Value != entity.Id)
+            if (
+                entity.ReferenceId.HasValue
+                && entity.ReferenceId.Value != entity.Id
+                && allItems.TryGetValue(entity.ReferenceId.Value, out var value)
+            )
             {
                 ignoreIds.Add(entity.Id);
 
                 return GetToDoItemParameters(
                     allItems,
                     fullToDoItems,
-                    allItems[entity.ReferenceId.Value],
+                    value,
                     dueDate,
                     offset,
                     parameters,
@@ -382,7 +386,8 @@ public class ToDoParametersFillerService
             ToDoType.Step => false,
             ToDoType.Reference => entity.ReferenceId.HasValue
                 && entity.ReferenceId != entity.Id
-                && IsDueable(allItems, allItems[entity.ReferenceId.Value]),
+                && allItems.TryGetValue(entity.ReferenceId.Value, out var value)
+                && IsDueable(allItems, value),
             _ => throw new ArgumentOutOfRangeException(entity.Type.ToString()),
         };
     }
