@@ -274,11 +274,6 @@ public sealed class DbToDoService
         CancellationToken ct
     )
     {
-        if (cloneItems.Length == 0)
-        {
-            return TaskHelper.ConfiguredCompletedTask;
-        }
-
         var items = cloneItems
             .Select(x =>
                 x.CloneIds.Select(y => Clone(allEntities, allEntities[y], x.ParentId))
@@ -975,11 +970,6 @@ public sealed class DbToDoService
             }
 
             entity.OrderIndex = (uint)siblingCount + 1;
-        }
-
-        if (adds.Count == 0)
-        {
-            return;
         }
 
         await session.AddEntitiesAsync(
