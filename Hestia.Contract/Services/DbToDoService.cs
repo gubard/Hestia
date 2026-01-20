@@ -274,6 +274,11 @@ public sealed class DbToDoService
         CancellationToken ct
     )
     {
+        if (cloneItems.Length == 0)
+        {
+            return TaskHelper.ConfiguredCompletedTask;
+        }
+
         var items = cloneItems
             .Select(x =>
                 x.CloneIds.Select(y => Clone(allEntities, allEntities[y], x.ParentId))
@@ -946,14 +951,12 @@ public sealed class DbToDoService
                 continue;
             }
 
-            adds.Add(create.ToToDoEntity());
-        }
+            var entity = create.ToToDoEntity();
+            adds.Add(entity);
 
-        foreach (var add in adds)
-        {
             int siblingCount;
 
-            if (add.ParentId is null)
+            if (entity.ParentId is null)
             {
                 siblingCount = await session.ExecuteScalarInt32Async(
                     new(ToDosExt.SelectCountQuery + " WHERE ParentId IS NULL"),
@@ -965,13 +968,18 @@ public sealed class DbToDoService
                 siblingCount = await session.ExecuteScalarInt32Async(
                     new(
                         ToDosExt.SelectCountQuery + " WHERE ParentId = @ParentId",
-                        new SqliteParameter("@ParentId", add.ParentId)
+                        new SqliteParameter("@ParentId", entity.ParentId)
                     ),
                     ct
                 );
             }
 
-            add.OrderIndex = (uint)siblingCount + 1;
+            entity.OrderIndex = (uint)siblingCount + 1;
+        }
+
+        if (adds.Count == 0)
+        {
+            return;
         }
 
         await session.AddEntitiesAsync(
