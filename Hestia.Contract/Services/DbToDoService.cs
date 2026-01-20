@@ -503,15 +503,15 @@ public sealed class DbToDoService
 
             foreach (var circle in circles)
             {
+                var edit = edits.GetItem(circle.Id);
+
                 if (completeTask)
                 {
-                    var edit = edits.GetItem(circle.Id);
                     edit.IsEditIsCompleted = true;
                     edit.IsCompleted = true;
                 }
                 else
                 {
-                    var edit = edits.GetItem(circle.Id);
                     edit.IsEditIsCompleted = true;
                     edit.IsCompleted = circle.OrderIndex != nextOrderIndex;
                 }
@@ -880,10 +880,16 @@ public sealed class DbToDoService
             for (var i = 0; i < siblings.Count; i++)
             {
                 var edit = edits.GetItem(siblings[i].Id);
-                edit.IsEditOrderIndex = siblings[i].OrderIndex != i + 1;
-                edit.OrderIndex = (uint)i + 1;
-                edit.IsEditParentId = siblings[i].ParentId != startItem.ParentId;
-                edit.ParentId = item.ParentId;
+                var isEditOrderIndex = siblings[i].OrderIndex != i + 1;
+                var isEditParentId = siblings[i].ParentId != startItem.ParentId;
+
+                if (isEditOrderIndex || isEditParentId)
+                {
+                    edit.IsEditOrderIndex = isEditOrderIndex;
+                    edit.IsEditParentId = isEditParentId;
+                    edit.OrderIndex = (uint)i + 1;
+                    edit.ParentId = item.ParentId;
+                }
             }
         }
     }
