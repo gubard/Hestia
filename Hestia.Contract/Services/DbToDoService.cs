@@ -245,7 +245,14 @@ public sealed class DbToDoService
 
         foreach (var step in steps)
         {
-            step.IsCompleted = completeTask;
+            if (step.IsCompleted == completeTask)
+            {
+                continue;
+            }
+
+            editToDoEntities.Add(
+                new(step.Id) { IsEditIsCompleted = true, IsCompleted = completeTask }
+            );
         }
 
         var groups = allItems
