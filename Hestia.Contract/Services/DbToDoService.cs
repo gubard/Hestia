@@ -103,45 +103,30 @@ public sealed class DbToDoService
     )
     {
         Dictionary<Guid, FullToDo> fullDictionary = new();
-        var editEntities = new List<EditToDoEntity>();
+        var edits = new AutoDictionary<Guid, EditToDoEntity>();
         var session = await Factory.CreateSessionAsync(ct);
         var options = _factoryOptions.Create();
         await CreateAsync(session, options, idempotentId, response, request.Creates, ct);
-        Edit(request.Edits, editEntities);
+        Edit(request.Edits, edits);
 
-        await ChangeOrderAsync(
-            session,
-            request.ChangeOrder,
-            response.ValidationErrors,
-            editEntities,
-            ct
-        );
+        await ChangeOrderAsync(session, request.ChangeOrder, response.ValidationErrors, edits, ct);
 
         var allItems = (await session.GetToDosAsync(ToDosExt.SelectQuery, ct))
             .ToDictionary(x => x.Id)
             .ToFrozenDictionary();
 
-        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, editEntities);
-        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, editEntities);
+        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits);
+        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, edits);
 
         await session.EditEntitiesAsync(
             _gaiaValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
-            editEntities.ToArray(),
+            edits.ToItemsArray(),
             ct
         );
 
-        await DeleteAsync(
-            session,
-            options,
-            idempotentId,
-            request.DeleteIds,
-            allItems,
-            editEntities,
-            ct
-        );
-
+        await DeleteAsync(session, options, idempotentId, request.DeleteIds, allItems, edits, ct);
         await session.CommitAsync(ct);
 
         return response;
@@ -150,28 +135,25 @@ public sealed class DbToDoService
     private void RandomizeChildrenOrderIndex(
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
-        List<EditToDoEntity> editEntities
+        AutoDictionary<Guid, EditToDoEntity> edits
     )
     {
         foreach (var id in ids)
         {
-            var children = allEntities
-                .Values.Where(x => x.ParentId == id)
-                .ForEach(x =>
-                    x.OrderIndex = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4))
-                )
-                .ToArray();
+            var children = allEntities.Values.Where(x => x.ParentId == id).ToArray();
 
-            editEntities.AddRange(
-                children.Select(
-                    (child, index) =>
-                        new EditToDoEntity(child.Id)
-                        {
-                            IsEditOrderIndex = true,
-                            OrderIndex = (uint)index + 1,
-                        }
-                )
-            );
+            foreach (var child in children)
+            {
+                child.OrderIndex = BitConverter.ToUInt32(RandomNumberGenerator.GetBytes(4));
+            }
+
+            for (var index = 0; index < children.Length; index++)
+            {
+                var child = children[index];
+                var edit = edits.GetItem(child.Id);
+                edit.IsEditOrderIndex = true;
+                edit.OrderIndex = (uint)index + 1;
+            }
         }
     }
 
@@ -179,7 +161,7 @@ public sealed class DbToDoService
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allItems,
         Dictionary<Guid, FullToDo> fullDictionary,
-        List<EditToDoEntity> editToDoEntities
+        AutoDictionary<Guid, EditToDoEntity> edits
     )
     {
         foreach (var id in ids)
@@ -200,7 +182,9 @@ public sealed class DbToDoService
 
             if (item.IsCompleted && parameters.IsCan == ToDoIsCan.CanIncomplete)
             {
-                editToDoEntities.Add(new(id) { IsEditIsCompleted = true, IsCompleted = false });
+                var edit = edits.GetItem(id);
+                edit.IsEditIsCompleted = true;
+                edit.IsCompleted = false;
             }
             else if (!item.IsCompleted && parameters.IsCan == ToDoIsCan.CanComplete)
             {
@@ -210,9 +194,9 @@ public sealed class DbToDoService
                     case ToDoType.Step:
                     case ToDoType.Value:
                     case ToDoType.FixedDate:
-                        editToDoEntities.Add(
-                            new(id) { IsEditIsCompleted = true, IsCompleted = true }
-                        );
+                        var edit = edits.GetItem(id);
+                        edit.IsEditIsCompleted = true;
+                        edit.IsCompleted = true;
 
                         break;
                     case ToDoType.Group:
@@ -224,9 +208,9 @@ public sealed class DbToDoService
                         throw new ArgumentOutOfRangeException();
                 }
 
-                MoveNextDueDate(item, allItems, editToDoEntities);
-                CircleCompletion(allItems, item, true, false, false, editToDoEntities);
-                StepCompletion(allItems, item, false, editToDoEntities);
+                MoveNextDueDate(item, allItems, edits);
+                CircleCompletion(allItems, item, true, false, false, edits);
+                StepCompletion(allItems, item, false, edits);
             }
         }
     }
@@ -235,7 +219,7 @@ public sealed class DbToDoService
         FrozenDictionary<Guid, ToDoEntity> allItems,
         ToDoEntity item,
         bool completeTask,
-        List<EditToDoEntity> editToDoEntities
+        AutoDictionary<Guid, EditToDoEntity> edits
     )
     {
         var steps = allItems
@@ -250,9 +234,9 @@ public sealed class DbToDoService
                 continue;
             }
 
-            editToDoEntities.Add(
-                new(step.Id) { IsEditIsCompleted = true, IsCompleted = completeTask }
-            );
+            var edit = edits.GetItem(step.Id);
+            edit.IsEditIsCompleted = true;
+            edit.IsCompleted = completeTask;
         }
 
         var groups = allItems
@@ -262,7 +246,7 @@ public sealed class DbToDoService
 
         foreach (var group in groups)
         {
-            StepCompletion(allItems, group, completeTask, editToDoEntities);
+            StepCompletion(allItems, group, completeTask, edits);
         }
 
         var referenceIds = allItems
@@ -283,7 +267,8 @@ public sealed class DbToDoService
                 case ToDoType.Value:
                     continue;
                 case ToDoType.Group:
-                    StepCompletion(allItems, reference, completeTask, editToDoEntities);
+                    StepCompletion(allItems, reference, completeTask, edits);
+
                     continue;
                 case ToDoType.FixedDate:
                 case ToDoType.Periodicity:
@@ -291,9 +276,10 @@ public sealed class DbToDoService
                 case ToDoType.Circle:
                     continue;
                 case ToDoType.Step:
-                    editToDoEntities.Add(
-                        new(referenceId) { IsCompleted = completeTask, IsEditIsCompleted = true }
-                    );
+                    var edit = edits.GetItem(referenceId);
+                    edit.IsEditIsCompleted = true;
+                    edit.IsCompleted = completeTask;
+
                     continue;
                 case ToDoType.Reference:
                     continue;
@@ -309,7 +295,7 @@ public sealed class DbToDoService
         bool moveCircleOrderIndex,
         bool completeTask,
         bool onlyCompletedTasks,
-        List<EditToDoEntity> editToDoEntities
+        AutoDictionary<Guid, EditToDoEntity> edits
     )
     {
         var circles = allItems
@@ -334,19 +320,15 @@ public sealed class DbToDoService
             {
                 if (completeTask)
                 {
-                    editToDoEntities.Add(
-                        new(circle.Id) { IsCompleted = true, IsEditIsCompleted = true }
-                    );
+                    var edit = edits.GetItem(circle.Id);
+                    edit.IsEditIsCompleted = true;
+                    edit.IsCompleted = true;
                 }
                 else
                 {
-                    editToDoEntities.Add(
-                        new(circle.Id)
-                        {
-                            IsCompleted = circle.OrderIndex != nextOrderIndex,
-                            IsEditIsCompleted = true,
-                        }
-                    );
+                    var edit = edits.GetItem(circle.Id);
+                    edit.IsEditIsCompleted = true;
+                    edit.IsCompleted = circle.OrderIndex != nextOrderIndex;
                 }
             }
         }
@@ -364,7 +346,7 @@ public sealed class DbToDoService
                 moveCircleOrderIndex,
                 completeTask,
                 onlyCompletedTasks,
-                editToDoEntities
+                edits
             );
         }
 
@@ -392,7 +374,7 @@ public sealed class DbToDoService
                         moveCircleOrderIndex,
                         completeTask,
                         onlyCompletedTasks,
-                        editToDoEntities
+                        edits
                     );
                     continue;
                 case ToDoType.FixedDate:
@@ -411,7 +393,7 @@ public sealed class DbToDoService
     private void MoveNextDueDate(
         ToDoEntity item,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
-        List<EditToDoEntity> editToDoEntities
+        AutoDictionary<Guid, EditToDoEntity> edits
     )
     {
         switch (item.Type)
@@ -422,10 +404,10 @@ public sealed class DbToDoService
             case ToDoType.Group:
             case ToDoType.FixedDate:
             case ToDoType.Periodicity:
-                AddPeriodicity(item, editToDoEntities);
+                AddPeriodicity(item, edits);
                 return;
             case ToDoType.PeriodicityOffset:
-                AddPeriodicityOffset(item, editToDoEntities);
+                AddPeriodicityOffset(item, edits);
                 return;
             case ToDoType.Reference:
                 if (!item.ReferenceId.HasValue)
@@ -433,7 +415,7 @@ public sealed class DbToDoService
                     return;
                 }
 
-                MoveNextDueDate(allEntities[item.ReferenceId.Value], allEntities, editToDoEntities);
+                MoveNextDueDate(allEntities[item.ReferenceId.Value], allEntities, edits);
 
                 return;
             default:
@@ -441,7 +423,7 @@ public sealed class DbToDoService
         }
     }
 
-    private void AddPeriodicity(ToDoEntity item, List<EditToDoEntity> editToDoEntities)
+    private void AddPeriodicity(ToDoEntity item, AutoDictionary<Guid, EditToDoEntity> edits)
     {
         var currentDueDate = item.IsRequiredCompleteInDueDate
             ? item.DueDate
@@ -450,30 +432,31 @@ public sealed class DbToDoService
         switch (item.TypeOfPeriodicity)
         {
             case TypeOfPeriodicity.Daily:
-                editToDoEntities.Add(
-                    new(item.Id) { IsEditDueDate = true, DueDate = currentDueDate.AddDays(1) }
-                );
+            {
+                var edit = edits.GetItem(item.Id);
+                edit.IsEditDueDate = true;
+                edit.DueDate = currentDueDate.AddDays(1);
+
                 break;
+            }
             case TypeOfPeriodicity.Weekly:
             {
                 var dayOfWeek = currentDueDate.DayOfWeek;
+
                 var daysOfWeek = item.GetDaysOfWeek()
                     .OrderBy(x => x)
                     .Select(x => (DayOfWeek?)x)
                     .ToArray();
-                var nextDay = daysOfWeek.FirstOrDefault(x => x > dayOfWeek);
 
-                editToDoEntities.Add(
-                    new(item.Id)
-                    {
-                        IsEditDueDate = true,
-                        DueDate = nextDay is not null
-                            ? currentDueDate.AddDays((int)nextDay - (int)dayOfWeek)
-                            : currentDueDate.AddDays(
-                                7 - (int)dayOfWeek + (int)daysOfWeek.First().ThrowIfNullStruct()
-                            ),
-                    }
-                );
+                var nextDay = daysOfWeek.FirstOrDefault(x => x > dayOfWeek);
+                var edit = edits.GetItem(item.Id);
+                edit.IsEditDueDate = true;
+
+                edit.DueDate = nextDay is not null
+                    ? currentDueDate.AddDays((int)nextDay - (int)dayOfWeek)
+                    : currentDueDate.AddDays(
+                        7 - (int)dayOfWeek + (int)daysOfWeek.First().ThrowIfNullStruct()
+                    );
                 break;
             }
             case TypeOfPeriodicity.Monthly:
@@ -487,6 +470,7 @@ public sealed class DbToDoService
                     .ToArray();
 
                 var nextDay = daysOfMonth.FirstOrDefault(x => x > dayOfMonth);
+
                 var daysInCurrentMonth = DateTime.DaysInMonth(
                     currentDueDate.Year,
                     currentDueDate.Month
@@ -497,22 +481,16 @@ public sealed class DbToDoService
                     currentDueDate.AddMonths(1).Month
                 );
 
-                editToDoEntities.Add(
-                    new(item.Id)
-                    {
-                        IsEditDueDate = true,
-                        DueDate = nextDay is not null
-                            ? item.DueDate.WithDay(Math.Min(nextDay.Value, daysInCurrentMonth))
-                            : item
-                                .DueDate.AddMonths(1)
-                                .WithDay(
-                                    Math.Min(
-                                        daysOfMonth.First().ThrowIfNullStruct(),
-                                        daysInNextMonth
-                                    )
-                                ),
-                    }
-                );
+                var edit = edits.GetItem(item.Id);
+                edit.IsEditDueDate = true;
+
+                edit.DueDate = nextDay is not null
+                    ? item.DueDate.WithDay(Math.Min(nextDay.Value, daysInCurrentMonth))
+                    : item
+                        .DueDate.AddMonths(1)
+                        .WithDay(
+                            Math.Min(daysOfMonth.First().ThrowIfNullStruct(), daysInNextMonth)
+                        );
 
                 break;
             }
@@ -533,30 +511,22 @@ public sealed class DbToDoService
                     (byte)daysOfYear.First().ThrowIfNull().Month
                 );
 
-                editToDoEntities.Add(
-                    new(item.Id)
-                    {
-                        IsEditDueDate = true,
-                        DueDate = nextDay is not null
-                            ? item
-                                .DueDate.WithMonth((byte)nextDay.Month)
-                                .WithDay(
-                                    Math.Min(
-                                        DateTime.DaysInMonth(
-                                            currentDueDate.Year,
-                                            (byte)nextDay.Month
-                                        ),
-                                        nextDay.Day
-                                    )
-                                )
-                            : item
-                                .DueDate.AddYears(1)
-                                .WithMonth((byte)daysOfYear.First().ThrowIfNull().Month)
-                                .WithDay(
-                                    Math.Min(daysInNextMonth, daysOfYear.First().ThrowIfNull().Day)
-                                ),
-                    }
-                );
+                var edit = edits.GetItem(item.Id);
+                edit.IsEditDueDate = true;
+
+                edit.DueDate = nextDay is not null
+                    ? item
+                        .DueDate.WithMonth((byte)nextDay.Month)
+                        .WithDay(
+                            Math.Min(
+                                DateTime.DaysInMonth(currentDueDate.Year, (byte)nextDay.Month),
+                                nextDay.Day
+                            )
+                        )
+                    : item
+                        .DueDate.AddYears(1)
+                        .WithMonth((byte)daysOfYear.First().ThrowIfNull().Month)
+                        .WithDay(Math.Min(daysInNextMonth, daysOfYear.First().ThrowIfNull().Day));
 
                 break;
             }
@@ -565,35 +535,26 @@ public sealed class DbToDoService
         }
     }
 
-    private void AddPeriodicityOffset(ToDoEntity item, List<EditToDoEntity> editToDoEntities)
+    private void AddPeriodicityOffset(ToDoEntity item, AutoDictionary<Guid, EditToDoEntity> edits)
     {
+        var edit = edits.GetItem(item.Id);
+        edit.IsEditDueDate = true;
+
         if (item.IsRequiredCompleteInDueDate)
         {
-            editToDoEntities.Add(
-                new(item.Id)
-                {
-                    IsEditDueDate = true,
-                    DueDate = item
-                        .DueDate.AddDays(item.DaysOffset + item.WeeksOffset * 7)
-                        .AddMonths(item.MonthsOffset)
-                        .AddYears(item.YearsOffset),
-                }
-            );
+            edit.DueDate = item
+                .DueDate.AddDays(item.DaysOffset + item.WeeksOffset * 7)
+                .AddMonths(item.MonthsOffset)
+                .AddYears(item.YearsOffset);
         }
         else
         {
-            editToDoEntities.Add(
-                new(item.Id)
-                {
-                    IsEditDueDate = true,
-                    DueDate = DateTimeOffset
-                        .UtcNow.Add(_gaiaValues.Offset)
-                        .Date.ToDateOnly()
-                        .AddDays(item.DaysOffset + item.WeeksOffset * 7)
-                        .AddMonths(item.MonthsOffset)
-                        .AddYears(item.YearsOffset),
-                }
-            );
+            edit.DueDate = DateTimeOffset
+                .UtcNow.Add(_gaiaValues.Offset)
+                .Date.ToDateOnly()
+                .AddDays(item.DaysOffset + item.WeeksOffset * 7)
+                .AddMonths(item.MonthsOffset)
+                .AddYears(item.YearsOffset);
         }
     }
 
@@ -603,7 +564,7 @@ public sealed class DbToDoService
         Guid idempotentId,
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allItems,
-        List<EditToDoEntity> editToDoEntities,
+        AutoDictionary<Guid, EditToDoEntity> edits,
         CancellationToken ct
     )
     {
@@ -622,7 +583,9 @@ public sealed class DbToDoService
 
         foreach (var referenceId in referenceIds)
         {
-            editToDoEntities.Add(new(referenceId) { IsEditReferenceId = true, ReferenceId = null });
+            var edit = edits.GetItem(referenceId);
+            edit.IsEditReferenceId = true;
+            edit.ReferenceId = null;
         }
 
         return session.DeleteEntitiesAsync(
@@ -659,7 +622,7 @@ public sealed class DbToDoService
         DbSession session,
         ToDoChangeOrder[] changeOrders,
         List<ValidationError> errors,
-        List<EditToDoEntity> editEntities,
+        AutoDictionary<Guid, EditToDoEntity> edits,
         CancellationToken ct
     )
     {
@@ -727,25 +690,16 @@ public sealed class DbToDoService
 
             for (var i = 0; i < siblings.Count; i++)
             {
-                var edit = new EditToDoEntity(siblings[i].Id)
-                {
-                    IsEditOrderIndex = siblings[i].OrderIndex != i + 1,
-                    OrderIndex = (uint)i + 1,
-                    IsEditParentId = siblings[i].ParentId != startItem.ParentId,
-                    ParentId = item.ParentId,
-                };
-
-                if (edit is { IsEditOrderIndex: false, IsEditParentId: false })
-                {
-                    continue;
-                }
-
-                editEntities.Add(edit);
+                var edit = edits.GetItem(siblings[i].Id);
+                edit.IsEditOrderIndex = siblings[i].OrderIndex != i + 1;
+                edit.OrderIndex = (uint)i + 1;
+                edit.IsEditParentId = siblings[i].ParentId != startItem.ParentId;
+                edit.ParentId = item.ParentId;
             }
         }
     }
 
-    private void Edit(EditToDos[] edits, List<EditToDoEntity> editEntities)
+    private void Edit(EditToDos[] edits, AutoDictionary<Guid, EditToDoEntity> editEntities)
     {
         foreach (var edit in edits)
         {
