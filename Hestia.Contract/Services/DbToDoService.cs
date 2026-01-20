@@ -225,13 +225,13 @@ public sealed class DbToDoService
                 }
 
                 MoveNextDueDate(item, allItems, editToDoEntities);
-                CircleCompletionAsync(allItems, item, true, false, false, editToDoEntities);
-                StepCompletionAsync(allItems, item, false, editToDoEntities);
+                CircleCompletion(allItems, item, true, false, false, editToDoEntities);
+                StepCompletion(allItems, item, false, editToDoEntities);
             }
         }
     }
 
-    private void StepCompletionAsync(
+    private void StepCompletion(
         FrozenDictionary<Guid, ToDoEntity> allItems,
         ToDoEntity item,
         bool completeTask,
@@ -262,7 +262,7 @@ public sealed class DbToDoService
 
         foreach (var group in groups)
         {
-            StepCompletionAsync(allItems, group, completeTask, editToDoEntities);
+            StepCompletion(allItems, group, completeTask, editToDoEntities);
         }
 
         var referenceIds = allItems
@@ -283,7 +283,7 @@ public sealed class DbToDoService
                 case ToDoType.Value:
                     continue;
                 case ToDoType.Group:
-                    StepCompletionAsync(allItems, reference, completeTask, editToDoEntities);
+                    StepCompletion(allItems, reference, completeTask, editToDoEntities);
                     continue;
                 case ToDoType.FixedDate:
                 case ToDoType.Periodicity:
@@ -303,7 +303,7 @@ public sealed class DbToDoService
         }
     }
 
-    private void CircleCompletionAsync(
+    private void CircleCompletion(
         FrozenDictionary<Guid, ToDoEntity> allItems,
         ToDoEntity item,
         bool moveCircleOrderIndex,
@@ -358,7 +358,7 @@ public sealed class DbToDoService
 
         foreach (var group in groups)
         {
-            CircleCompletionAsync(
+            CircleCompletion(
                 allItems,
                 group,
                 moveCircleOrderIndex,
@@ -386,7 +386,7 @@ public sealed class DbToDoService
                 case ToDoType.Value:
                     continue;
                 case ToDoType.Group:
-                    CircleCompletionAsync(
+                    CircleCompletion(
                         allItems,
                         reference,
                         moveCircleOrderIndex,
