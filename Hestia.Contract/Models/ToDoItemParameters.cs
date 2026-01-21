@@ -4,5 +4,5 @@ public class ToDoItemParameters
 {
     public ShortToDo? ActiveItem { get; set; }
     public ToDoStatus Status { get; set; }
-    public ToDoIsCan IsCan { get; set; }
+    public ToDoIsCanDo IsCanDo { get; set; }
 }

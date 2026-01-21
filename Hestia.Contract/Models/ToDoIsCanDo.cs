@@ -1,7 +1,7 @@
 namespace Hestia.Contract.Models;
 
 [Flags]
-public enum ToDoIsCan
+public enum ToDoIsCanDo
 {
     None = 0,
     CanComplete = 1,

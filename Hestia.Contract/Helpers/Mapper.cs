@@ -91,7 +91,7 @@ public static class Mapper
     {
         return new()
         {
-            IsCan = parameters.IsCan,
+            IsCanDo = parameters.IsCanDo,
             Parameters = entity.ToToDoShort(),
             Status = parameters.Status,
             Active = parameters.ActiveItem,

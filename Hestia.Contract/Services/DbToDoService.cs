@@ -360,18 +360,18 @@ public sealed class DbToDoService
                 _gaiaValues.Offset
             );
 
-            if (parameters.IsCan == ToDoIsCan.None)
+            if (parameters.IsCanDo == ToDoIsCanDo.None)
             {
                 continue;
             }
 
-            if (item.IsCompleted && parameters.IsCan == ToDoIsCan.CanIncomplete)
+            if (item.IsCompleted && parameters.IsCanDo == ToDoIsCanDo.CanIncomplete)
             {
                 var edit = edits.GetItem(id);
                 edit.IsEditIsCompleted = true;
                 edit.IsCompleted = false;
             }
-            else if (!item.IsCompleted && parameters.IsCan == ToDoIsCan.CanComplete)
+            else if (!item.IsCompleted && parameters.IsCanDo == ToDoIsCanDo.CanComplete)
             {
                 switch (item.Type)
                 {

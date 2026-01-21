@@ -104,7 +104,7 @@ public class ToDoParametersFillerService
                 );
             }
 
-            parameters.IsCan = ToDoIsCan.None;
+            parameters.IsCanDo = ToDoIsCanDo.None;
             parameters.ActiveItem = null;
             parameters.Status = ToDoStatus.Miss;
             fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
@@ -116,7 +116,7 @@ public class ToDoParametersFillerService
 
         if (entity.IsCompleted && isCompletable)
         {
-            parameters.IsCan = ToDoIsCan.CanIncomplete;
+            parameters.IsCanDo = ToDoIsCanDo.CanIncomplete;
             parameters.ActiveItem = null;
             parameters.Status = ToDoStatus.Completed;
             fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
@@ -140,7 +140,7 @@ public class ToDoParametersFillerService
                 {
                     parameters.ActiveItem = null;
                     parameters.Status = ToDoStatus.Planned;
-                    parameters.IsCan = ToDoIsCan.None;
+                    parameters.IsCanDo = ToDoIsCanDo.None;
                     fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                     return parameters;
@@ -160,7 +160,7 @@ public class ToDoParametersFillerService
                 {
                     parameters.ActiveItem = null;
                     parameters.Status = ToDoStatus.Planned;
-                    parameters.IsCan = ToDoIsCan.None;
+                    parameters.IsCanDo = ToDoIsCanDo.None;
                     fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                     return parameters;
@@ -241,7 +241,7 @@ public class ToDoParametersFillerService
             {
                 parameters.ActiveItem = firstActive ?? ToActiveToDoItem(entity);
                 parameters.Status = ToDoStatus.Miss;
-                parameters.IsCan = ToDoIsCan.None;
+                parameters.IsCanDo = ToDoIsCanDo.None;
                 fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                 return parameters;
@@ -251,7 +251,7 @@ public class ToDoParametersFillerService
             {
                 parameters.ActiveItem = firstMiss;
                 parameters.Status = ToDoStatus.Miss;
-                parameters.IsCan = ToDoIsCan.None;
+                parameters.IsCanDo = ToDoIsCanDo.None;
                 fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                 return parameters;
@@ -261,7 +261,7 @@ public class ToDoParametersFillerService
             {
                 parameters.ActiveItem = firstReadyForComplete;
                 parameters.Status = ToDoStatus.ReadyForComplete;
-                parameters.IsCan = ToDoIsCan.None;
+                parameters.IsCanDo = ToDoIsCanDo.None;
                 fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                 return parameters;
@@ -271,7 +271,7 @@ public class ToDoParametersFillerService
             {
                 parameters.ActiveItem = null;
                 parameters.Status = ToDoStatus.Planned;
-                parameters.IsCan = ToDoIsCan.None;
+                parameters.IsCanDo = ToDoIsCanDo.None;
                 fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                 return parameters;
@@ -279,7 +279,7 @@ public class ToDoParametersFillerService
 
             parameters.ActiveItem = null;
             parameters.Status = ToDoStatus.Completed;
-            parameters.IsCan = ToDoIsCan.None;
+            parameters.IsCanDo = ToDoIsCanDo.None;
             fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
             return parameters;
@@ -294,7 +294,7 @@ public class ToDoParametersFillerService
                     {
                         parameters.ActiveItem = firstActive;
                         parameters.Status = ToDoStatus.Miss;
-                        parameters.IsCan = ToDoIsCan.None;
+                        parameters.IsCanDo = ToDoIsCanDo.None;
                         fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                         return parameters;
@@ -302,14 +302,14 @@ public class ToDoParametersFillerService
 
                     parameters.ActiveItem = ToActiveToDoItem(entity);
                     parameters.Status = ToDoStatus.Miss;
-                    parameters.IsCan = ToDoIsCan.CanComplete;
+                    parameters.IsCanDo = ToDoIsCanDo.CanComplete;
                     fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                     return parameters;
                 case ChildrenCompletionType.IgnoreCompletion:
                     parameters.ActiveItem = firstActive ?? ToActiveToDoItem(entity);
                     parameters.Status = ToDoStatus.Miss;
-                    parameters.IsCan = ToDoIsCan.CanComplete;
+                    parameters.IsCanDo = ToDoIsCanDo.CanComplete;
                     fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                     return parameters;
@@ -325,12 +325,12 @@ public class ToDoParametersFillerService
                 case ChildrenCompletionType.RequireCompletion:
                     parameters.ActiveItem = firstMiss;
                     parameters.Status = ToDoStatus.Miss;
-                    parameters.IsCan = ToDoIsCan.None;
+                    parameters.IsCanDo = ToDoIsCanDo.None;
                     break;
                 case ChildrenCompletionType.IgnoreCompletion:
                     parameters.ActiveItem = firstMiss;
                     parameters.Status = ToDoStatus.Miss;
-                    parameters.IsCan = ToDoIsCan.CanComplete;
+                    parameters.IsCanDo = ToDoIsCanDo.CanComplete;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(entity.ChildrenCompletionType.ToString());
@@ -348,13 +348,13 @@ public class ToDoParametersFillerService
                 case ChildrenCompletionType.RequireCompletion:
                     parameters.ActiveItem = firstReadyForComplete;
                     parameters.Status = ToDoStatus.ReadyForComplete;
-                    parameters.IsCan = ToDoIsCan.None;
+                    parameters.IsCanDo = ToDoIsCanDo.None;
 
                     break;
                 case ChildrenCompletionType.IgnoreCompletion:
                     parameters.ActiveItem = firstReadyForComplete;
                     parameters.Status = ToDoStatus.ReadyForComplete;
-                    parameters.IsCan = ToDoIsCan.CanComplete;
+                    parameters.IsCanDo = ToDoIsCanDo.CanComplete;
                     break;
                 default:
                     throw new ArgumentOutOfRangeException(entity.ChildrenCompletionType.ToString());
@@ -367,7 +367,7 @@ public class ToDoParametersFillerService
 
         parameters.ActiveItem = null;
         parameters.Status = ToDoStatus.ReadyForComplete;
-        parameters.IsCan = ToDoIsCan.CanComplete;
+        parameters.IsCanDo = ToDoIsCanDo.CanComplete;
         fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
         return parameters;
