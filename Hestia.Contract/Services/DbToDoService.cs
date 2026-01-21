@@ -879,12 +879,12 @@ public sealed class DbToDoService
 
             for (var i = 0; i < siblings.Count; i++)
             {
-                var edit = edits.GetItem(siblings[i].Id);
                 var isEditOrderIndex = siblings[i].OrderIndex != i + 1;
                 var isEditParentId = siblings[i].ParentId != startItem.ParentId;
 
                 if (isEditOrderIndex || isEditParentId)
                 {
+                    var edit = edits.GetItem(siblings[i].Id);
                     edit.IsEditOrderIndex = isEditOrderIndex;
                     edit.IsEditParentId = isEditParentId;
                     edit.OrderIndex = (uint)i + 1;
