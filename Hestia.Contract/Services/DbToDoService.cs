@@ -17,22 +17,22 @@ namespace Hestia.Contract.Services;
 public interface IToDoService
     : IService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
-public interface IHttpToDoService
+public interface IToDoHttpService
     : IToDoService,
         IHttpService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
-public interface IDbToDoService
+public interface IToDoDbService
     : IToDoService,
         IDbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
 
 public interface IToDoDbCache : IDbCache<HestiaPostRequest, HestiaGetResponse>;
 
-public sealed class DbToDoService
+public sealed class ToDoDbService
     : DbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>,
-        IDbToDoService,
+        IToDoDbService,
         IToDoDbCache
 {
-    public DbToDoService(
+    public ToDoDbService(
         IDbConnectionFactory factory,
         GaiaValues gaiaValues,
         ToDoParametersFillerService toDoParametersFillerService,
@@ -60,14 +60,14 @@ public sealed class DbToDoService
         return UpdateCore(source, ct).ConfigureAwait(false);
     }
 
-    public async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
-    {
-        await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
-    }
-
     public ConfiguredValueTaskAwaitable UpdateAsync(HestiaGetResponse source, CancellationToken ct)
     {
         return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    private async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
+    {
+        await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
     }
 
     private async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)

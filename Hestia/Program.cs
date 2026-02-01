@@ -26,7 +26,7 @@ var builder = WebApplication
     .CreateBuilder(args)
     .AddServicesZeus<
         IToDoService,
-        DbToDoService,
+        ToDoDbService,
         HestiaGetRequest,
         HestiaPostRequest,
         HestiaGetResponse,
