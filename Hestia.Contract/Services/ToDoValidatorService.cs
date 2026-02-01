@@ -91,8 +91,6 @@ public sealed class ToDoValidator : IToDoValidator
             case ToDoType.FixedDate:
                 switch (identity)
                 {
-                    case nameof(value.DueDate):
-                        return ValidateDueDate(value.DueDate);
                     case nameof(value.Link):
                         return ValidateLink(value.Link);
                 }
@@ -101,8 +99,6 @@ public sealed class ToDoValidator : IToDoValidator
             case ToDoType.Periodicity:
                 switch (identity)
                 {
-                    case nameof(value.DueDate):
-                        return ValidateDueDate(value.DueDate);
                     case nameof(value.Link):
                         return ValidateLink(value.Link);
                     case nameof(value.AnnuallyDays):
@@ -147,8 +143,6 @@ public sealed class ToDoValidator : IToDoValidator
             case ToDoType.PeriodicityOffset:
                 switch (identity)
                 {
-                    case nameof(value.DueDate):
-                        return ValidateDueDate(value.DueDate);
                     case nameof(value.Link):
                         return ValidateLink(value.Link);
                     case nameof(value.DaysOffset):
@@ -214,21 +208,6 @@ public sealed class ToDoValidator : IToDoValidator
         if (!link.IsLink())
         {
             return [new PropertyInvalidValidationError(nameof(IToDo.Link))];
-        }
-
-        return [];
-    }
-
-    private ValidationError[] ValidateDueDate(DateOnly dueDate)
-    {
-        var now = DateTime.Now;
-
-        if (dueDate.ToDateTime(TimeOnly.MinValue) <= now)
-        {
-            return
-            [
-                new PropertyTheDateHasExpiredValidationError("DueDate", dueDate, now.ToDateOnly()),
-            ];
         }
 
         return [];
