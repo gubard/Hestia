@@ -2,7 +2,7 @@ using Gaia.Models;
 
 namespace Hestia.Contract.Models;
 
-public class EditToDos
+public sealed class EditToDos : IEdit
 {
     public Guid[] Ids { get; set; } = [];
     public Guid? ParentId { get; set; }

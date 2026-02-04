@@ -149,7 +149,7 @@ public sealed class ToDoDbService
         var result = new List<EditToDoEntity>();
 
         var sibling = request
-            .ChangeOrder.Select(y => y.InsertIds)
+            .ChangeOrders.Select(y => y.InsertIds)
             .SelectMany(x => x)
             .Concat(request.DeleteIds)
             .Concat(
@@ -246,7 +246,7 @@ public sealed class ToDoDbService
 
         await CloneItemsAsync(session, options, idempotentId, allItems, request.Clones, ct);
         Edit(request.Edits, edits);
-        await ChangeOrderAsync(session, request.ChangeOrder, response.ValidationErrors, edits, ct);
+        await ChangeOrderAsync(session, request.ChangeOrders, response.ValidationErrors, edits, ct);
         SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, edits);
 
@@ -809,7 +809,7 @@ public sealed class ToDoDbService
 
     private async ValueTask ChangeOrderAsync(
         DbSession session,
-        ToDoChangeOrder[] changeOrders,
+        ChangeOrder[] changeOrders,
         List<ValidationError> errors,
         AutoDictionary<Guid, EditToDoEntity> edits,
         CancellationToken ct
