@@ -7,7 +7,6 @@ using Gaia.Models;
 using Gaia.Services;
 using Hestia.Contract.Helpers;
 using Hestia.Contract.Models;
-using Microsoft.Data.Sqlite;
 using Nestor.Db.Helpers;
 using Nestor.Db.Models;
 using Nestor.Db.Services;
