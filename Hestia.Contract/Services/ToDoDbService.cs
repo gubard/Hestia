@@ -491,14 +491,15 @@ public sealed class ToDoDbService
 
         if (circles.Any() && (!onlyCompletedTasks || circles.All(x => x.IsCompleted)))
         {
-            var nextOrderIndex = item.CurrentCircleOrderIndex;
+            var nextCurrentCircleOrderIndex = item.CurrentCircleOrderIndex;
 
             if (moveCircleOrderIndex)
             {
                 var next = circles.FirstOrDefault(x => x.OrderIndex > item.CurrentCircleOrderIndex);
-
-                nextOrderIndex = next?.OrderIndex ?? circles[0].OrderIndex;
-                item.CurrentCircleOrderIndex = nextOrderIndex;
+                nextCurrentCircleOrderIndex = next?.OrderIndex ?? circles[0].OrderIndex;
+                var edit = edits.GetItem(item.Id);
+                edit.IsEditCurrentCircleOrderIndex = true;
+                edit.CurrentCircleOrderIndex = nextCurrentCircleOrderIndex;
             }
 
             foreach (var circle in circles)
@@ -513,7 +514,7 @@ public sealed class ToDoDbService
                 else
                 {
                     edit.IsEditIsCompleted = true;
-                    edit.IsCompleted = circle.OrderIndex != nextOrderIndex;
+                    edit.IsCompleted = circle.OrderIndex != nextCurrentCircleOrderIndex;
                 }
             }
         }
