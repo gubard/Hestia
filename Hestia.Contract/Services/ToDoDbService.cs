@@ -505,15 +505,14 @@ public sealed class ToDoDbService
             foreach (var circle in circles)
             {
                 var edit = edits.GetItem(circle.Id);
+                edit.IsEditIsCompleted = true;
 
                 if (completeTask)
                 {
-                    edit.IsEditIsCompleted = true;
                     edit.IsCompleted = true;
                 }
                 else
                 {
-                    edit.IsEditIsCompleted = true;
                     edit.IsCompleted = circle.OrderIndex != nextCurrentCircleOrderIndex;
                 }
             }
