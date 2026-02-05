@@ -84,14 +84,14 @@ public sealed class ToDoDbService
 
         var updateQueries = entities
             .Where(x => exists.Contains(x.Id))
-            .Select(x => x.CreateUpdateToDosQuery())
+            .Select(x => x.CreateUpdateToDosQuery(session))
             .ToArray();
 
         var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
 
         if (inserts.Length != 0)
         {
-            await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(), ct);
+            await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(session), ct);
         }
 
         foreach (var query in updateQueries)
@@ -108,14 +108,14 @@ public sealed class ToDoDbService
             var deleteIds = await session.GetGuidAsync(
                 new(
                     ToDosExt.SelectIdsQuery + $" WHERE Id NOT IN ({ids.ToParameterNames("Id")})",
-                    ids.ToSqliteParameters("Id")
+                    session.ToDbParameters(ids, "Id")
                 ),
                 ct
             );
 
             if (deleteIds.Length != 0)
             {
-                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(), ct);
+                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(session), ct);
             }
         }
 
@@ -216,7 +216,7 @@ public sealed class ToDoDbService
             await using var reader = await session.ExecuteReaderAsync(
                 new(
                     $"{EventsExt.SelectQuery} WHERE Id > @LastId",
-                    new SqliteParameter[] { new("@LastId", request.LastId) }
+                    session.CreateParameter("@LastId", request.LastId)
                 ),
                 ct
             );
@@ -837,7 +837,7 @@ public sealed class ToDoDbService
             new SqlQuery(
                 ToDosExt.SelectQuery
                     + $" WHERE ParentId IN ({parentItems.ToParameterNames("ParentId")})",
-                parentItems.ToSqliteParameters("ParentId")
+                session.ToDbParameters(parentItems, "ParentId")
             ),
             ct
         );
@@ -969,7 +969,7 @@ public sealed class ToDoDbService
                 siblingCount = await session.ExecuteScalarInt32Async(
                     new(
                         ToDosExt.SelectCountQuery + " WHERE ParentId = @ParentId",
-                        new SqliteParameter("@ParentId", entity.ParentId)
+                        session.CreateParameter("@ParentId", entity.ParentId)
                     ),
                     ct
                 );
