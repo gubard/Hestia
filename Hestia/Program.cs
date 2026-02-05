@@ -22,6 +22,11 @@ foreach (var (key, value) in HestiaMigration.Migrations)
     migration.Add(key, value);
 }
 
+foreach (var (key, value) in IdempotenceMigration.Migrations)
+{
+    migration.Add(key, value);
+}
+
 var builder = WebApplication
     .CreateBuilder(args)
     .AddServicesZeus<
@@ -31,7 +36,7 @@ var builder = WebApplication
         HestiaPostRequest,
         HestiaGetResponse,
         HestiaPostResponse
-    >(migration.ToFrozenDictionary(), "Hestia");
+    >(migration.ToFrozenDictionary(), HestiaJsonContext.Default.Options, "Hestia");
 
 builder.Services.AddTransient<ToDoParametersFillerService>();
 builder.Services.AddTransient<IToDoValidator, ToDoValidator>();
