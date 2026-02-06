@@ -33,14 +33,14 @@ public sealed class ToDoDbService
 {
     public ToDoDbService(
         IDbConnectionFactory factory,
-        GaiaValues gaiaValues,
+        IFactory<DbValues> dbValuesFactory,
         ToDoParametersFillerService toDoParametersFillerService,
         IToDoValidator toDoValidator,
         IFactory<DbServiceOptions> factoryOptions
     )
         : base(factory, nameof(ToDoEntity))
     {
-        _gaiaValues = gaiaValues;
+        _dbValuesFactory = dbValuesFactory;
         _toDoParametersFillerService = toDoParametersFillerService;
         _toDoValidator = toDoValidator;
         _factoryOptions = factoryOptions;
@@ -131,7 +131,7 @@ public sealed class ToDoDbService
         return PostCore(idempotentId, response, request, ct).ConfigureAwait(false);
     }
 
-    private readonly GaiaValues _gaiaValues;
+    private readonly IFactory<DbValues> _dbValuesFactory;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
     private readonly IToDoValidator _toDoValidator;
     private readonly IFactory<DbServiceOptions> _factoryOptions;
@@ -143,6 +143,7 @@ public sealed class ToDoDbService
         CancellationToken ct
     )
     {
+        var gaiaValues = _dbValuesFactory.Create();
         await using var session = await Factory.CreateSessionAsync(ct);
         var options = _factoryOptions.Create();
         var result = new List<EditToDoEntity>();
@@ -191,7 +192,7 @@ public sealed class ToDoDbService
         }
 
         await session.EditEntitiesAsync(
-            _gaiaValues.UserId.ToString(),
+            gaiaValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
             result.ToArray(),
@@ -206,9 +207,10 @@ public sealed class ToDoDbService
         CancellationToken ct
     )
     {
+        var gaiaValues = _dbValuesFactory.Create();
         await using var session = await Factory.CreateSessionAsync(ct);
         var items = await session.GetToDosAsync(ToDosExt.SelectQuery, ct);
-        var response = CreateGetResponse(request, items);
+        var response = CreateGetResponse(request, items, gaiaValues);
 
         if (request.LastId != -1)
         {
@@ -233,31 +235,60 @@ public sealed class ToDoDbService
         CancellationToken ct
     )
     {
+        var gaiaValues = _dbValuesFactory.Create();
         var fullDictionary = new Dictionary<Guid, FullToDo>();
         var edits = new AutoDictionary<Guid, EditToDoEntity>();
         await using var session = await Factory.CreateSessionAsync(ct);
         var options = _factoryOptions.Create();
-        await CreateAsync(session, options, idempotentId, response, request.Creates, ct);
+
+        await CreateAsync(
+            session,
+            options,
+            idempotentId,
+            response,
+            request.Creates,
+            gaiaValues,
+            ct
+        );
 
         var allItems = (await session.GetToDosAsync(ToDosExt.SelectQuery, ct))
             .ToDictionary(x => x.Id)
             .ToFrozenDictionary();
 
-        await CloneItemsAsync(session, options, idempotentId, allItems, request.Clones, ct);
+        await CloneItemsAsync(
+            session,
+            options,
+            idempotentId,
+            allItems,
+            request.Clones,
+            gaiaValues,
+            ct
+        );
+
         Edit(request.Edits, edits);
         await ChangeOrderAsync(session, request.ChangeOrders, response.ValidationErrors, edits, ct);
-        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits);
+        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits, gaiaValues);
         RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, edits);
 
         await session.EditEntitiesAsync(
-            _gaiaValues.UserId.ToString(),
+            gaiaValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
             edits.ToItemsArray(),
             ct
         );
 
-        await DeleteAsync(session, options, idempotentId, request.DeleteIds, allItems, edits, ct);
+        await DeleteAsync(
+            session,
+            options,
+            idempotentId,
+            request.DeleteIds,
+            allItems,
+            edits,
+            gaiaValues,
+            ct
+        );
+
         await session.CommitAsync(ct);
         await UpdateChildrenOrderIndexAsync(allItems, request, idempotentId, ct);
 
@@ -270,6 +301,7 @@ public sealed class ToDoDbService
         Guid idempotentId,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
         CloneToDoItem[] cloneItems,
+        DbValues dbValues,
         CancellationToken ct
     )
     {
@@ -282,7 +314,7 @@ public sealed class ToDoDbService
             .ToArray();
 
         return session.AddEntitiesAsync(
-            _gaiaValues.UserId.ToString(),
+            dbValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
             items,
@@ -345,7 +377,8 @@ public sealed class ToDoDbService
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allItems,
         Dictionary<Guid, FullToDo> fullDictionary,
-        AutoDictionary<Guid, EditToDoEntity> edits
+        AutoDictionary<Guid, EditToDoEntity> edits,
+        DbValues dbValues
     )
     {
         foreach (var id in ids)
@@ -356,7 +389,7 @@ public sealed class ToDoDbService
                 allItems,
                 fullDictionary,
                 item,
-                _gaiaValues.Offset
+                dbValues.Offset
             );
 
             if (parameters.IsCanDo == ToDoIsCanDo.None)
@@ -392,7 +425,7 @@ public sealed class ToDoDbService
                         throw new ArgumentOutOfRangeException();
                 }
 
-                MoveNextDueDate(item, allItems, edits);
+                MoveNextDueDate(item, allItems, edits, dbValues);
                 CircleCompletion(allItems, item, true, false, false, edits);
                 StepCompletion(allItems, item, false, edits);
             }
@@ -578,7 +611,8 @@ public sealed class ToDoDbService
     private void MoveNextDueDate(
         ToDoEntity item,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
-        AutoDictionary<Guid, EditToDoEntity> edits
+        AutoDictionary<Guid, EditToDoEntity> edits,
+        DbValues dbValues
     )
     {
         switch (item.Type)
@@ -589,11 +623,11 @@ public sealed class ToDoDbService
             case ToDoType.Group:
             case ToDoType.FixedDate:
             case ToDoType.Periodicity:
-                AddPeriodicity(item, edits);
+                AddPeriodicity(item, edits, dbValues);
 
                 return;
             case ToDoType.PeriodicityOffset:
-                AddPeriodicityOffset(item, edits);
+                AddPeriodicityOffset(item, edits, dbValues);
 
                 return;
             case ToDoType.Reference:
@@ -602,7 +636,7 @@ public sealed class ToDoDbService
                     return;
                 }
 
-                MoveNextDueDate(allEntities[item.ReferenceId.Value], allEntities, edits);
+                MoveNextDueDate(allEntities[item.ReferenceId.Value], allEntities, edits, dbValues);
 
                 return;
             default:
@@ -610,11 +644,15 @@ public sealed class ToDoDbService
         }
     }
 
-    private void AddPeriodicity(ToDoEntity item, AutoDictionary<Guid, EditToDoEntity> edits)
+    private void AddPeriodicity(
+        ToDoEntity item,
+        AutoDictionary<Guid, EditToDoEntity> edits,
+        DbValues dbValues
+    )
     {
         var currentDueDate = item.IsRequiredCompleteInDueDate
             ? item.DueDate
-            : DateTimeOffset.UtcNow.Add(_gaiaValues.Offset).Date.ToDateOnly();
+            : DateTimeOffset.UtcNow.Add(dbValues.Offset).Date.ToDateOnly();
 
         switch (item.TypeOfPeriodicity)
         {
@@ -723,7 +761,11 @@ public sealed class ToDoDbService
         }
     }
 
-    private void AddPeriodicityOffset(ToDoEntity item, AutoDictionary<Guid, EditToDoEntity> edits)
+    private void AddPeriodicityOffset(
+        ToDoEntity item,
+        AutoDictionary<Guid, EditToDoEntity> edits,
+        DbValues dbValues
+    )
     {
         var edit = edits.GetItem(item.Id);
         edit.IsEditDueDate = true;
@@ -738,7 +780,7 @@ public sealed class ToDoDbService
         else
         {
             edit.DueDate = DateTimeOffset
-                .UtcNow.Add(_gaiaValues.Offset)
+                .UtcNow.Add(dbValues.Offset)
                 .Date.ToDateOnly()
                 .AddDays(item.DaysOffset + item.WeeksOffset * 7)
                 .AddMonths(item.MonthsOffset)
@@ -753,6 +795,7 @@ public sealed class ToDoDbService
         Guid[] ids,
         FrozenDictionary<Guid, ToDoEntity> allItems,
         AutoDictionary<Guid, EditToDoEntity> edits,
+        DbValues dbValues,
         CancellationToken ct
     )
     {
@@ -777,7 +820,7 @@ public sealed class ToDoDbService
         }
 
         return session.DeleteEntitiesAsync(
-            _gaiaValues.UserId.ToString(),
+            dbValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
             allIds,
@@ -907,6 +950,7 @@ public sealed class ToDoDbService
         Guid idempotentId,
         HestiaPostResponse response,
         ShortToDo[] creates,
+        DbValues dbValues,
         CancellationToken ct
     )
     {
@@ -978,7 +1022,7 @@ public sealed class ToDoDbService
         }
 
         await session.AddEntitiesAsync(
-            _gaiaValues.UserId.ToString(),
+            dbValues.UserId.ToString(),
             idempotentId,
             options.IsUseEvents,
             adds.ToArray(),
@@ -986,7 +1030,11 @@ public sealed class ToDoDbService
         );
     }
 
-    private HestiaGetResponse CreateGetResponse(HestiaGetRequest request, ToDoEntity[] items)
+    private HestiaGetResponse CreateGetResponse(
+        HestiaGetRequest request,
+        ToDoEntity[] items,
+        DbValues dbValues
+    )
     {
         var response = new HestiaGetResponse();
         var dictionary = items.ToDictionary(x => x.Id).ToFrozenDictionary();
@@ -1018,7 +1066,7 @@ public sealed class ToDoDbService
                         new() { Id = id, Statuses = item.Statuses },
                         0,
                         builder,
-                        _gaiaValues.Offset
+                        dbValues.Offset
                     );
 
                     response.ToStrings.Add(id, builder.ToString().Trim());
@@ -1030,7 +1078,7 @@ public sealed class ToDoDbService
         {
             response.CurrentActive.IsResponse = true;
             var rootsFullItems = roots
-                .Select(i => GetFullItem(dictionary, fullDictionary, i, _gaiaValues.Offset))
+                .Select(i => GetFullItem(dictionary, fullDictionary, i, dbValues.Offset))
                 .OrderBy(x => x.Parameters.OrderIndex)
                 .ToArray();
 
@@ -1064,7 +1112,7 @@ public sealed class ToDoDbService
             response.Favorites = dictionary
                 .Where(x => x.Value.IsFavorite)
                 .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x.Value, _gaiaValues.Offset))
+                .Select(x => GetFullItem(dictionary, fullDictionary, x.Value, dbValues.Offset))
                 .ToArray();
         }
 
@@ -1086,7 +1134,7 @@ public sealed class ToDoDbService
                         .Values.Where(x => x.ParentId == id)
                         .ToArray()
                         .Select(item =>
-                            GetFullItem(dictionary, fullDictionary, item, _gaiaValues.Offset)
+                            GetFullItem(dictionary, fullDictionary, item, dbValues.Offset)
                         )
                         .ToArray()
                 );
@@ -1104,7 +1152,7 @@ public sealed class ToDoDbService
                             fullDictionary,
                             dictionary[id],
                             new(),
-                            _gaiaValues.Offset
+                            dbValues.Offset
                         )
                         .ToArray()
                 );
@@ -1127,7 +1175,7 @@ public sealed class ToDoDbService
                     request.Search.Types.Length == 0 || request.Search.Types.Contains(x.Type)
                 )
                 .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+                .Select(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
                 .ToArray();
         }
 
@@ -1141,7 +1189,7 @@ public sealed class ToDoDbService
 
         if (request.IsToday)
         {
-            var today = DateTimeOffset.UtcNow.Add(_gaiaValues.Offset).Date.ToDateOnly();
+            var today = DateTimeOffset.UtcNow.Add(dbValues.Offset).Date.ToDateOnly();
 
             response.Today = dictionary
                 .Values.Where(x =>
@@ -1159,14 +1207,14 @@ public sealed class ToDoDbService
                         )
                 )
                 .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+                .Select(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
                 .ToArray();
         }
 
         if (request.IsRoots)
         {
             response.Roots = roots
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, _gaiaValues.Offset))
+                .Select(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
                 .ToArray();
         }
 
@@ -1174,7 +1222,7 @@ public sealed class ToDoDbService
         {
             response.Items = request
                 .Items.Select(x =>
-                    GetFullItem(dictionary, fullDictionary, dictionary[x], _gaiaValues.Offset)
+                    GetFullItem(dictionary, fullDictionary, dictionary[x], dbValues.Offset)
                 )
                 .ToArray();
         }
