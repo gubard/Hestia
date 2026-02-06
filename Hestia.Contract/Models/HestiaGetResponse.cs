@@ -4,7 +4,7 @@ using Nestor.Db.Models;
 
 namespace Hestia.Contract.Models;
 
-public class HestiaGetResponse : IValidationErrors, IResponse
+public class HestiaGetResponse : IResponse
 {
     public ToDoSelector[]? Selectors { get; set; }
     public Dictionary<Guid, string> ToStrings { get; set; } = [];
@@ -19,5 +19,4 @@ public class HestiaGetResponse : IValidationErrors, IResponse
     public FullToDo[]? Roots { get; set; }
     public FullToDo[] Items { get; set; } = [];
     public List<ValidationError> ValidationErrors { get; set; } = [];
-    public EventEntity[] Events { get; set; } = [];
 }

@@ -212,19 +212,6 @@ public sealed class ToDoDbService
         var items = await session.GetToDosAsync(ToDosExt.SelectQuery, ct);
         var response = CreateGetResponse(request, items, gaiaValues);
 
-        if (request.LastId != -1)
-        {
-            await using var reader = await session.ExecuteReaderAsync(
-                new(
-                    $"{EventsExt.SelectQuery} WHERE Id > @LastId",
-                    session.CreateParameter("@LastId", request.LastId)
-                ),
-                ct
-            );
-
-            response.Events = (await reader.ReadEventsAsync(ct).ToEnumerableAsync()).ToArray();
-        }
-
         return response;
     }
 
