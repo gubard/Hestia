@@ -10,17 +10,6 @@ public interface IToDoValidator : IValidator<string>, IValidator<IToDo>;
 
 public sealed class ToDoValidator : IToDoValidator
 {
-    private const string ValidDescriptionChars =
-        StringHelper.UpperLatin
-        + StringHelper.LowerLatin
-        + StringHelper.Number
-        + StringHelper.SpecialSymbols
-        + " ";
-
-    private static readonly SearchValues<char> ValidDescriptionValues = SearchValues.Create(
-        ValidDescriptionChars
-    );
-
     public ValidationError[] Validate(string value, string identity)
     {
         switch (identity)
@@ -54,25 +43,6 @@ public sealed class ToDoValidator : IToDoValidator
                             "Description",
                             (ulong)value.Length,
                             10_000
-                        ),
-                    ];
-                }
-
-                if (value.IsNullOrWhiteSpace())
-                {
-                    return [];
-                }
-
-                var index = value.IndexOfAnyExcept(ValidDescriptionValues);
-
-                if (index >= 0)
-                {
-                    return
-                    [
-                        new PropertyContainsInvalidValueValidationError<char>(
-                            "Description",
-                            value[index],
-                            ValidDescriptionChars.ToCharArray()
                         ),
                     ];
                 }
