@@ -2,6 +2,6 @@
 
 public class ShortToDoResponse
 {
-    public bool IsResponse { get; set; }
+    public bool HasResponse { get; set; }
     public ShortToDo? Item { get; set; }
 }

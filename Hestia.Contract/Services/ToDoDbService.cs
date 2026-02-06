@@ -1076,7 +1076,7 @@ public sealed class ToDoDbService
 
         if (request.IsCurrentActive)
         {
-            response.CurrentActive.IsResponse = true;
+            response.CurrentActive.HasResponse = true;
             var rootsFullItems = roots
                 .Select(i => GetFullItem(dictionary, fullDictionary, i, dbValues.Offset))
                 .OrderBy(x => x.Parameters.OrderIndex)

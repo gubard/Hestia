@@ -4,7 +4,7 @@ namespace Hestia.Contract.Helpers;
 
 public static class ToDoTypeExtension
 {
-    public static bool IsHasDueDate(this ToDoType type)
+    public static bool HasDueDate(this ToDoType type)
     {
         return type switch
         {
