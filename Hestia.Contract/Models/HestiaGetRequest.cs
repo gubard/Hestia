@@ -2,7 +2,7 @@
 
 public class HestiaGetRequest
 {
-    public bool IsSelectors { get; set; }
+    public bool IsGetSelectors { get; set; }
     public GetToStringItem[] ToStringIds { get; set; } = [];
     public bool IsCurrentActive { get; set; }
     public Guid[] ActiveItems { get; set; } = [];

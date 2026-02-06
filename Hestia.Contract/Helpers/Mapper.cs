@@ -92,7 +92,7 @@ public static class Mapper
         return new()
         {
             IsCanDo = parameters.IsCanDo,
-            Parameters = entity.ToToDoShort(),
+            Item = entity.ToToDoShort(),
             Status = parameters.Status,
             Active = parameters.ActiveItem,
         };
