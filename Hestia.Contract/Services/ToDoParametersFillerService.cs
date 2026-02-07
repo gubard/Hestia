@@ -21,6 +21,17 @@ public class ToDoParametersFillerService
             parameters.ActiveItem = null;
         }
 
+        SetComingSoonStatusIfNeed(entity, parameters, offset);
+
+        return parameters;
+    }
+
+    private void SetComingSoonStatusIfNeed(
+        ToDoEntity entity,
+        ToDoItemParameters parameters,
+        TimeSpan offset
+    )
+    {
         var today = DateTimeOffset.UtcNow.Add(offset).Date.ToDateOnly();
 
         if (
@@ -31,8 +42,6 @@ public class ToDoParametersFillerService
         {
             parameters.Status = ToDoStatus.ComingSoon;
         }
-
-        return parameters;
     }
 
     private ToDoItemParameters GetToDoItemParameters(
@@ -141,6 +150,7 @@ public class ToDoParametersFillerService
                     parameters.ActiveItem = null;
                     parameters.Status = ToDoStatus.Planned;
                     parameters.IsCanDo = ToDoIsCanDo.None;
+                    SetComingSoonStatusIfNeed(entity, parameters, offset);
                     fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                     return parameters;
@@ -161,6 +171,7 @@ public class ToDoParametersFillerService
                     parameters.ActiveItem = null;
                     parameters.Status = ToDoStatus.Planned;
                     parameters.IsCanDo = ToDoIsCanDo.None;
+                    SetComingSoonStatusIfNeed(entity, parameters, offset);
                     fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
                     return parameters;
@@ -172,9 +183,11 @@ public class ToDoParametersFillerService
             .Values.Where(x => x.ParentId == entity.Id && !ignoreIds.Contains(x.Id))
             .OrderBy(x => x.OrderIndex)
             .ToArray();
+
         ShortToDo? firstReadyForComplete = null;
         ShortToDo? firstMiss = null;
         var hasPlanned = false;
+        var hasComingSoon = false;
 
         foreach (var item in items)
         {
@@ -225,6 +238,8 @@ public class ToDoParametersFillerService
                 case ToDoStatus.Completed:
                     break;
                 case ToDoStatus.ComingSoon:
+                    hasComingSoon = true;
+
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -261,6 +276,16 @@ public class ToDoParametersFillerService
             {
                 parameters.ActiveItem = firstReadyForComplete;
                 parameters.Status = ToDoStatus.ReadyForComplete;
+                parameters.IsCanDo = ToDoIsCanDo.None;
+                fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
+
+                return parameters;
+            }
+
+            if (hasComingSoon)
+            {
+                parameters.ActiveItem = null;
+                parameters.Status = ToDoStatus.ComingSoon;
                 parameters.IsCanDo = ToDoIsCanDo.None;
                 fullToDoItems[entity.Id] = entity.ToFullToDo(parameters);
 
