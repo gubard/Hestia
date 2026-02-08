@@ -121,14 +121,14 @@ public sealed class ToDoDbService
         await session.CommitAsync(ct);
     }
 
-    protected override ConfiguredValueTaskAwaitable<HestiaPostResponse> ExecuteAsync(
+    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
         Guid idempotentId,
         HestiaPostResponse response,
         HestiaPostRequest request,
         CancellationToken ct
     )
     {
-        return PostCore(idempotentId, response, request, ct).ConfigureAwait(false);
+        return ExecuteCore(idempotentId, response, request, ct).ConfigureAwait(false);
     }
 
     private readonly IFactory<DbValues> _dbValuesFactory;
@@ -215,7 +215,7 @@ public sealed class ToDoDbService
         return response;
     }
 
-    private async ValueTask<HestiaPostResponse> PostCore(
+    private async ValueTask ExecuteCore(
         Guid idempotentId,
         HestiaPostResponse response,
         HestiaPostRequest request,
@@ -278,8 +278,6 @@ public sealed class ToDoDbService
 
         await session.CommitAsync(ct);
         await UpdateChildrenOrderIndexAsync(allItems, request, idempotentId, ct);
-
-        return response;
     }
 
     private ConfiguredValueTaskAwaitable CloneItemsAsync(
