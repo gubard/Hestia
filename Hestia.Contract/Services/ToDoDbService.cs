@@ -83,14 +83,14 @@ public sealed class ToDoDbService
 
         var updateQueries = entities
             .Where(x => exists.Contains(x.Id))
-            .Select(x => x.CreateUpdateToDosQuery(session))
+            .Select(x => x.CreateUpdateToDosQuery())
             .ToArray();
 
         var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
 
         if (inserts.Length != 0)
         {
-            await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(session), ct);
+            await session.ExecuteNonQueryAsync(inserts.CreateInsertQuery(), ct);
         }
 
         foreach (var query in updateQueries)
@@ -107,14 +107,14 @@ public sealed class ToDoDbService
             var deleteIds = await session.GetGuidAsync(
                 new(
                     ToDosExt.SelectIdsQuery + $" WHERE Id NOT IN ({ids.ToParameterNames("Id")})",
-                    session.ToDbParameters(ids, "Id")
+                    ids.ToQueryParameters("Id")
                 ),
                 ct
             );
 
             if (deleteIds.Length != 0)
             {
-                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(session), ct);
+                await session.ExecuteNonQueryAsync(deleteIds.CreateDeleteToDosQuery(), ct);
             }
         }
 
@@ -864,7 +864,7 @@ public sealed class ToDoDbService
             new SqlQuery(
                 ToDosExt.SelectQuery
                     + $" WHERE ParentId IN ({parentItems.ToParameterNames("ParentId")})",
-                session.ToDbParameters(parentItems, "ParentId")
+                parentItems.ToQueryParameters("ParentId")
             ),
             ct
         );
@@ -997,7 +997,7 @@ public sealed class ToDoDbService
                 siblingCount = await session.ExecuteScalarInt32Async(
                     new(
                         ToDosExt.SelectCountQuery + " WHERE ParentId = @ParentId",
-                        session.CreateParameter("@ParentId", entity.ParentId)
+                        new QueryParameter("@ParentId", entity.ParentId)
                     ),
                     ct
                 );
