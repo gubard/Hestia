@@ -1,6 +1,6 @@
 namespace Hestia.Contract.Models;
 
-public class FullToDo
+public sealed class FullToDo
 {
     public ShortToDo Item { get; set; } = new();
     public ToDoStatus Status { get; set; }

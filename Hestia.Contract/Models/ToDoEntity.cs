@@ -2,7 +2,7 @@
 
 namespace Hestia.Contract.Models;
 
-public class ToDoEntity
+public sealed class ToDoEntity
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;

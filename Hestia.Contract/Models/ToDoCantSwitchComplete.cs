@@ -2,7 +2,7 @@
 
 namespace Hestia.Contract.Models;
 
-public class ToDoCantSwitchComplete : IdentityValidationError
+public sealed class ToDoCantSwitchComplete : IdentityValidationError
 {
     public ToDoCantSwitchComplete(string identity)
         : base(identity) { }

@@ -1,6 +1,6 @@
 namespace Hestia.Contract.Models;
 
-public class ResetToDoItemOptions
+public sealed class ResetToDoItemOptions
 {
     public Guid Id { get; set; }
     public bool IsCompleteCurrentTask { get; set; }

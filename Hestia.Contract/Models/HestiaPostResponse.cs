@@ -4,7 +4,7 @@ using Nestor.Db.Models;
 
 namespace Hestia.Contract.Models;
 
-public class HestiaPostResponse : IValidationErrors, IPostResponse
+public sealed class HestiaPostResponse : IPostResponse
 {
     public List<ValidationError> ValidationErrors { get; } = [];
     public EventEntity[] Events { get; set; } = [];

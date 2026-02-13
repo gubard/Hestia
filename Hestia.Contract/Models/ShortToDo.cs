@@ -3,7 +3,7 @@ using Hestia.Contract.Services;
 
 namespace Hestia.Contract.Models;
 
-public class ShortToDo : IToDo
+public sealed class ShortToDo : IToDo
 {
     public Guid Id { get; set; }
     public string Name { get; set; } = string.Empty;

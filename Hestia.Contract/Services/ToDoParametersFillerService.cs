@@ -5,7 +5,7 @@ using Hestia.Contract.Models;
 
 namespace Hestia.Contract.Services;
 
-public class ToDoParametersFillerService
+public sealed class ToDoParametersFillerService
 {
     public ToDoItemParameters GetToDoItemParameters(
         FrozenDictionary<Guid, ToDoEntity> allItems,

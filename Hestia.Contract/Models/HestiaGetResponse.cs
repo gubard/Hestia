@@ -3,7 +3,7 @@ using Nestor.Db.Models;
 
 namespace Hestia.Contract.Models;
 
-public class HestiaGetResponse : IResponse
+public sealed class HestiaGetResponse : IResponse
 {
     public ToDoSelector[]? Selectors { get; set; }
     public Dictionary<Guid, string> ToStrings { get; set; } = [];

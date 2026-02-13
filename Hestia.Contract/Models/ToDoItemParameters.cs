@@ -1,6 +1,6 @@
 ﻿namespace Hestia.Contract.Models;
 
-public class ToDoItemParameters
+public sealed class ToDoItemParameters
 {
     public ShortToDo? ActiveItem { get; set; }
     public ToDoStatus Status { get; set; }
