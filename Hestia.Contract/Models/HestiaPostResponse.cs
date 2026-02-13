@@ -1,5 +1,4 @@
 ﻿using Gaia.Models;
-using Gaia.Services;
 using Nestor.Db.Models;
 
 namespace Hestia.Contract.Models;
