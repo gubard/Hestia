@@ -7,24 +7,12 @@ using Gaia.Models;
 using Gaia.Services;
 using Hestia.Contract.Helpers;
 using Hestia.Contract.Models;
+using Hestia.Contract.Services;
 using Nestor.Db.Helpers;
 using Nestor.Db.Models;
 using Nestor.Db.Services;
 
-namespace Hestia.Contract.Services;
-
-public interface IToDoService
-    : IService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
-
-public interface IToDoHttpService
-    : IToDoService,
-        IHttpService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
-
-public interface IToDoDbService
-    : IToDoService,
-        IDbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>;
-
-public interface IToDoDbCache : IDbCache<HestiaPostRequest, HestiaGetResponse>;
+namespace Hestia.Db.Services;
 
 public sealed class ToDoDbService
     : DbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>,

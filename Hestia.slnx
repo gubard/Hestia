@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="Hestia.Contract/Hestia.Contract.csproj" />
+  <Project Path="Hestia.Db/Hestia.Db.csproj" />
   <Project Path="Hestia/Hestia.csproj" />
 </Solution>
