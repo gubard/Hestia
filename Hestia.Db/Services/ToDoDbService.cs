@@ -124,69 +124,6 @@ public sealed class ToDoDbService
         await session.CommitAsync(ct);
     }
 
-    private async ValueTask UpdateChildrenOrderIndexAsync(
-        FrozenDictionary<Guid, ToDoEntity> allEntities,
-        HestiaPostRequest request,
-        Guid idempotentId,
-        CancellationToken ct
-    )
-    {
-        var gaiaValues = _dbValuesFactory.Create();
-        await using var session = await Factory.CreateSessionAsync(ct);
-        var options = _factoryOptions.Create();
-        var result = new List<EditToDoEntity>();
-
-        var sibling = request
-            .DeleteIds.Concat(
-                request.Edits.Where(x => x.IsEditParentId).Select(x => x.Ids).SelectMany(x => x)
-            )
-            .Distinct()
-            .ToArray();
-
-        if (sibling.Length == 0)
-        {
-            return;
-        }
-
-        var ids = allEntities
-            .Values.Where(x => sibling.Contains(x.Id))
-            .Select(x => x.ParentId)
-            .Concat(request.Clones.Select(x => x.ParentId))
-            .Concat(request.Edits.Where(x => x.IsEditParentId).Select(x => x.ParentId))
-            .Distinct()
-            .ToArray();
-
-        foreach (var id in ids)
-        {
-            var children = allEntities
-                .Values.Where(x => x.ParentId == id)
-                .OrderBy(x => x.OrderIndex)
-                .ToArray();
-
-            for (var index = 0; index < children.Length; index++)
-            {
-                var child = children[index];
-
-                if (child.OrderIndex == (uint)index + 1)
-                {
-                    continue;
-                }
-
-                result.Add(new(child.Id) { IsEditOrderIndex = true, OrderIndex = (uint)index + 1 });
-            }
-        }
-
-        await session.EditEntitiesAsync(
-            gaiaValues.UserId.ToString(),
-            idempotentId,
-            options.IsUseEvents,
-            result.ToArray(),
-            ct
-        );
-
-        await session.CommitAsync(ct);
-    }
-
     private async ValueTask<HestiaGetResponse> GetCore(
         HestiaGetRequest request,
         CancellationToken ct
@@ -262,7 +199,6 @@ public sealed class ToDoDbService
         );
 
         await session.CommitAsync(ct);
-        await UpdateChildrenOrderIndexAsync(allItems, request, idempotentId, ct);
     }
 
     private ConfiguredValueTaskAwaitable CloneItemsAsync(
