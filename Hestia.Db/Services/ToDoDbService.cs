@@ -137,10 +137,7 @@ public sealed class ToDoDbService
         var result = new List<EditToDoEntity>();
 
         var sibling = request
-            .ChangeOrders.Select(y => y.InsertIds)
-            .SelectMany(x => x)
-            .Concat(request.DeleteIds)
-            .Concat(
+            .DeleteIds.Concat(
                 request.Edits.Where(x => x.IsEditParentId).Select(x => x.Ids).SelectMany(x => x)
             )
             .Distinct()
