@@ -57,6 +57,21 @@ public sealed class ToDoDbService
         await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
     }
 
+    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
+        Guid idempotentId,
+        HestiaPostResponse response,
+        HestiaPostRequest request,
+        CancellationToken ct
+    )
+    {
+        return ExecuteCore(idempotentId, response, request, ct).ConfigureAwait(false);
+    }
+
+    private readonly IFactory<DbValues> _dbValuesFactory;
+    private readonly ToDoParametersFillerService _toDoParametersFillerService;
+    private readonly IToDoValidator _toDoValidator;
+    private readonly IFactory<DbServiceOptions> _factoryOptions;
+
     private async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)
     {
         await using var session = await Factory.CreateSessionAsync(ct);
@@ -108,21 +123,6 @@ public sealed class ToDoDbService
 
         await session.CommitAsync(ct);
     }
-
-    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
-        Guid idempotentId,
-        HestiaPostResponse response,
-        HestiaPostRequest request,
-        CancellationToken ct
-    )
-    {
-        return ExecuteCore(idempotentId, response, request, ct).ConfigureAwait(false);
-    }
-
-    private readonly IFactory<DbValues> _dbValuesFactory;
-    private readonly ToDoParametersFillerService _toDoParametersFillerService;
-    private readonly IToDoValidator _toDoValidator;
-    private readonly IFactory<DbServiceOptions> _factoryOptions;
 
     private async ValueTask UpdateChildrenOrderIndexAsync(
         FrozenDictionary<Guid, ToDoEntity> allEntities,
