@@ -1291,26 +1291,25 @@ public sealed class ToDoDbService
     private static ToDoEntity[] GetToDoEntities(HestiaGetResponse source)
     {
         return source
-            .Children.SelectMany(x => x.Value)
-            .Select(x => x.Item.ToToDoEntity())
+            .Items.Select(x => x.ToToDoEntity())
+            .Concat(source.Children.SelectMany(x => x.Value).Select(x => x.ToToDoEntity()))
+            .Concat(source.Search.Select(x => x.ToToDoEntity()))
+            .Concat(source.Today.Select(x => x.ToToDoEntity()))
+            .Concat(source.Leafs.SelectMany(x => x.Value).Select(x => x.Item.ToToDoEntity()))
+            .Concat(
+                source.Roots?.Select(x => x.Item.ToToDoEntity()) ?? Enumerable.Empty<ToDoEntity>()
+            )
             .Concat(source.Parents.SelectMany(x => x.Value).Select(x => x.ToToDoEntity()))
-            .Concat(source.Items.Select(x => x.Item.ToToDoEntity()))
-            .Concat(source.Search.Select(x => x.Item.ToToDoEntity()))
-            .Concat(source.Today.Select(x => x.Item.ToToDoEntity()))
             .Concat(
                 source.Selectors?.SelectMany(x => GetToDoEntities(x))
                     ?? Enumerable.Empty<ToDoEntity>()
             )
-            .Concat(source.Leafs.SelectMany(x => x.Value).Select(x => x.Item.ToToDoEntity()))
             .Concat(
                 source.Favorites?.Select(x => x.Item.ToToDoEntity())
                     ?? Enumerable.Empty<ToDoEntity>()
             )
             .Concat(
                 source.Bookmarks?.Select(x => x.ToToDoEntity()) ?? Enumerable.Empty<ToDoEntity>()
-            )
-            .Concat(
-                source.Roots?.Select(x => x.Item.ToToDoEntity()) ?? Enumerable.Empty<ToDoEntity>()
             )
             .GroupBy(x => x.Id)
             .Select(x => x.First())

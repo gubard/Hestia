@@ -197,6 +197,32 @@ public static class Mapper
             NormalizeName = entity.Name.ToUpperInvariant(),
         };
     }
+    
+    public static ToDoEntity ToToDoEntity(this FullToDo entity)
+    {
+
+        var item = entity.Item.ToToDoEntity();
+
+        switch (item.Type)
+        
+        {   case ToDoType.Circle:
+            case ToDoType.FixedDate:
+            case ToDoType.Periodicity:
+            case ToDoType.PeriodicityOffset:
+            case ToDoType.Step:
+            case ToDoType.Value:
+                item.IsCompleted = entity.Status == ToDoStatus.Completed;
+                break;
+            case ToDoType.Group:
+                break;
+            case ToDoType.Reference:
+                break;
+            default:
+                throw new ArgumentOutOfRangeException();
+        }
+
+        return item;
+    }
 
     private static Guid? GetReferenceId(ToDoEntity item)
     {
