@@ -67,6 +67,10 @@ public sealed class ToDoDbService
         return ExecuteCore(idempotentId, response, request, ct).ConfigureAwait(false);
     }
 
+    private static readonly ReadOnlyMemory<string> UpdateProperties = ToDosExt
+        .PropertyNames.Span.ToArray()
+        .Where(x => x != nameof(ToDoEntity.IsCompleted))
+        .ToArray();
     private readonly IFactory<DbValues> _dbValuesFactory;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
     private readonly IToDoValidator _toDoValidator;
@@ -75,7 +79,8 @@ public sealed class ToDoDbService
     private async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)
     {
         await using var session = await Factory.CreateSessionAsync(ct);
-        var entities = GetToDoEntities(source);
+        var updateValues = GetToDoEntities(source);
+        var entities = updateValues.Select(x => x.item).ToArray();
 
         if (entities.Length == 0)
         {
@@ -84,9 +89,13 @@ public sealed class ToDoDbService
 
         var exists = await session.IsExistsAsync(entities, ct);
 
-        var updateQueries = entities
-            .Where(x => exists.Contains(x.Id))
-            .Select(x => x.CreateUpdateToDosQuery())
+        var updateQueries = updateValues
+            .Where(x => exists.Contains(x.item.Id))
+            .Select(x =>
+                x.item.CreateUpdateToDosQuery(
+                    x.isUpdateIsComplited ? ToDosExt.PropertyNames.Span : UpdateProperties.Span
+                )
+            )
             .ToArray();
 
         var inserts = entities.Where(x => !exists.Contains(x.Id)).ToArray();
@@ -1288,31 +1297,37 @@ public sealed class ToDoDbService
         }
     }
 
-    private static ToDoEntity[] GetToDoEntities(HestiaGetResponse source)
+    private static (bool isUpdateIsComplited, ToDoEntity item)[] GetToDoEntities(
+        HestiaGetResponse source
+    )
     {
         return source
-            .Items.Select(x => x.ToToDoEntity())
-            .Concat(source.Children.SelectMany(x => x.Value).Select(x => x.ToToDoEntity()))
-            .Concat(source.Search.Select(x => x.ToToDoEntity()))
-            .Concat(source.Today.Select(x => x.ToToDoEntity()))
-            .Concat(source.Leafs.SelectMany(x => x.Value).Select(x => x.Item.ToToDoEntity()))
+            .Items.Select(x => (true, x.ToToDoEntity()))
+            .Concat(source.Children.SelectMany(x => x.Value).Select(x => (true, x.ToToDoEntity())))
+            .Concat(source.Search.Select(x => (true, x.ToToDoEntity())))
+            .Concat(source.Today.Select(x => (true, x.ToToDoEntity())))
             .Concat(
-                source.Roots?.Select(x => x.Item.ToToDoEntity()) ?? Enumerable.Empty<ToDoEntity>()
-            )
-            .Concat(source.Parents.SelectMany(x => x.Value).Select(x => x.ToToDoEntity()))
-            .Concat(
-                source.Selectors?.SelectMany(x => GetToDoEntities(x))
-                    ?? Enumerable.Empty<ToDoEntity>()
+                source.Leafs.SelectMany(x => x.Value).Select(x => (true, x.Item.ToToDoEntity()))
             )
             .Concat(
-                source.Favorites?.Select(x => x.Item.ToToDoEntity())
-                    ?? Enumerable.Empty<ToDoEntity>()
+                source.Roots?.Select(x => (true, x.Item.ToToDoEntity()))
+                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
             )
             .Concat(
-                source.Bookmarks?.Select(x => x.ToToDoEntity()) ?? Enumerable.Empty<ToDoEntity>()
+                source.Favorites?.Select(x => (true, x.Item.ToToDoEntity()))
+                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
             )
-            .GroupBy(x => x.Id)
-            .Select(x => x.First())
+            .Concat(source.Parents.SelectMany(x => x.Value).Select(x => (false, x.ToToDoEntity())))
+            .Concat(
+                source.Selectors?.SelectMany(GetToDoEntities).Select(x => (false, x))
+                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
+            )
+            .Concat(
+                source.Bookmarks?.Select(x => (false, x.ToToDoEntity()))
+                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
+            )
+            .GroupBy(x => x.Item2.Id)
+            .Select(x => x.Any(y => y.Item1) ? x.First(y => y.Item1) : x.First())
             .ToArray();
     }
 
