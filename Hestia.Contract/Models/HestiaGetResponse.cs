@@ -17,5 +17,6 @@ public sealed class HestiaGetResponse : IResponse
     public FullToDo[] Today { get; set; } = [];
     public FullToDo[]? Roots { get; set; }
     public FullToDo[] Items { get; set; } = [];
+    public FullToDo[]? Full { get; set; }
     public List<ValidationError> ValidationErrors { get; set; } = [];
 }

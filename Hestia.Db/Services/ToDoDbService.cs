@@ -71,6 +71,7 @@ public sealed class ToDoDbService
         .PropertyNames.Span.ToArray()
         .Where(x => x != nameof(ToDoEntity.IsCompleted))
         .ToArray();
+
     private readonly IFactory<DbValues> _dbValuesFactory;
     private readonly ToDoParametersFillerService _toDoParametersFillerService;
     private readonly IToDoValidator _toDoValidator;
@@ -1131,6 +1132,16 @@ public sealed class ToDoDbService
             response.Roots = roots
                 .Select(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
                 .ToArray();
+        }
+
+        if (request.IsFull)
+        {
+            foreach (var root in roots)
+            {
+                GetFullItem(dictionary, fullDictionary, root, dbValues.Offset);
+            }
+
+            response.Full = fullDictionary.Select(x => x.Value).ToArray();
         }
 
         if (request.Items.Length != 0)

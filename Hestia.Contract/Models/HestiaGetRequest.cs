@@ -14,5 +14,6 @@ public sealed class HestiaGetRequest
     public Guid[] ParentIds { get; set; } = [];
     public bool IsToday { get; set; }
     public bool IsRoots { get; set; }
+    public bool IsFull { get; set; }
     public Guid[] Items { get; set; } = [];
 }
