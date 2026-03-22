@@ -1141,7 +1141,7 @@ public sealed class ToDoDbService
                 GetFullItem(dictionary, fullDictionary, root, dbValues.Offset);
             }
 
-            response.Full = fullDictionary.Select(x => x.Value).ToArray();
+            response.Full = fullDictionary.Values.ToArray();
         }
 
         if (request.Items.Length != 0)
