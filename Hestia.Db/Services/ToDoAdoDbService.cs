@@ -14,12 +14,12 @@ using Nestor.Db.Services;
 
 namespace Hestia.Db.Services;
 
-public sealed class ToDoDbService
-    : DbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>,
+public sealed class ToDoAdoDbService
+    : AdoDbService<HestiaGetRequest, HestiaPostRequest, HestiaGetResponse, HestiaPostResponse>,
         IToDoDbService,
         IToDoDbCache
 {
-    public ToDoDbService(
+    public ToDoAdoDbService(
         IDbConnectionFactory factory,
         IFactory<DbValues> dbValuesFactory,
         ToDoParametersFillerService toDoParametersFillerService,

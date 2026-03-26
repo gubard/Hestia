@@ -5,6 +5,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <ProjectReference Include="..\..\Nestor\Nestor.Db.LiteDb\Nestor.Db.LiteDb.csproj" />
     <ProjectReference Include="..\Hestia.Contract\Hestia.Contract.csproj" />
+    <ProjectReference
+      Include="..\..\Nestor\Nestor.SourceGenerator\Nestor.SourceGenerator.csproj"
+      ReferenceOutputAssembly="false"
+      OutputItemType="Analyzer"
+    />
   </ItemGroup>
 </Project>
