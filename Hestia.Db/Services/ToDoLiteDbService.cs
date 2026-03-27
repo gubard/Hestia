@@ -78,7 +78,11 @@ public sealed class ToDoLiteDbService
 
                 if (!x.isUpdateIsComplited)
                 {
-                    bsonDocument.Remove(nameof(ToDoEntity.IsCompleted));
+                    var d = collection.FindById(x.item.Id);
+
+                    bsonDocument[nameof(ToDoEntity.IsCompleted)] = d[
+                        nameof(ToDoEntity.IsCompleted)
+                    ];
                 }
 
                 return bsonDocument;
