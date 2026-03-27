@@ -39,13 +39,7 @@ public sealed class ToDoLiteDbService
         CancellationToken ct
     )
     {
-        var gaiaValues = _dbValuesFactory.Create();
-        using var database = Factory.Create();
-        var collection = database.GetToDoEntityCollection();
-        var items = collection.FindAll().Select(x => x.ToToDoEntity()).ToArray();
-        var response = CreateGetResponse(request, items, gaiaValues);
-
-        return TaskHelper.FromResult(response);
+        return GetCore(request, ct).ConfigureAwait(false);
     }
 
     public ConfiguredValueTaskAwaitable UpdateAsync(HestiaPostRequest source, CancellationToken ct)
@@ -55,14 +49,72 @@ public sealed class ToDoLiteDbService
 
     public ConfiguredValueTaskAwaitable UpdateAsync(HestiaGetResponse source, CancellationToken ct)
     {
-        using var database = Factory.Create();
+        return UpdateCore(source, ct).ConfigureAwait(false);
+    }
+
+    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
+        Guid idempotentId,
+        HestiaPostResponse response,
+        HestiaPostRequest request,
+        CancellationToken ct
+    )
+    {
+        return ExecuteCore(idempotentId, response, request, ct).ConfigureAwait(false);
+    }
+
+    private readonly IFactory<DbValues> _dbValuesFactory;
+    private readonly ToDoParametersFillerService _toDoParametersFillerService;
+    private readonly IToDoValidator _toDoValidator;
+    private readonly IFactory<DbServiceOptions> _factoryOptions;
+
+    private async ValueTask ExecuteCore(
+        Guid idempotentId,
+        HestiaPostResponse response,
+        HestiaPostRequest request,
+        CancellationToken ct
+    )
+    {
+        var gaiaValues = _dbValuesFactory.Create();
+        var fullDictionary = new Dictionary<Guid, FullToDo>();
+        var edits = new AutoDictionary<Guid, EditToDoEntity>();
+        using var database = await Factory.CreateAsync(ct);
+        var collection = database.GetToDoEntityCollection();
+        var options = _factoryOptions.Create();
+        Create(database, collection, options, idempotentId, response, request.Creates, gaiaValues);
+
+        var allItems = collection
+            .FindAll()
+            .Select(x => x.ToToDoEntity())
+            .ToDictionary(x => x.Id)
+            .ToFrozenDictionary();
+
+        CloneItems(database, options, idempotentId, allItems, request.Clones, gaiaValues);
+        Edit(request.Edits, edits);
+        ChangeOrder(database, collection, request.ChangeOrders, response.ValidationErrors, edits);
+        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits, gaiaValues);
+        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, edits);
+
+        database.EditEntities(
+            gaiaValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            edits.ToItemsArray()
+        );
+
+        Delete(database, options, idempotentId, request.DeleteIds, allItems, edits, gaiaValues, ct);
+        await database.SaveChangesAsync(ct);
+    }
+
+    private async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)
+    {
+        using var database = await Factory.CreateAsync(ct);
         var collection = database.GetToDoEntityCollection();
         var updateValues = GetToDoEntities(source);
         var entities = updateValues.Select(x => x.item).ToArray();
 
         if (entities.Length == 0)
         {
-            return TaskHelper.ConfiguredCompletedTask;
+            return;
         }
 
         var exists = entities
@@ -121,60 +173,27 @@ public sealed class ToDoLiteDbService
             }
         }
 
-        database.SaveChanges();
+        await database.SaveChangesAsync(ct);
+    }
 
-        return TaskHelper.ConfiguredCompletedTask;
+    private async ValueTask<HestiaGetResponse> GetCore(
+        HestiaGetRequest request,
+        CancellationToken ct
+    )
+    {
+        var gaiaValues = _dbValuesFactory.Create();
+        using var database = await Factory.CreateAsync(ct);
+        var collection = database.GetToDoEntityCollection();
+        var items = collection.FindAll().Select(x => x.ToToDoEntity()).ToArray();
+        var response = CreateGetResponse(request, items, gaiaValues);
+
+        return response;
     }
 
     private async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
     {
         await ExecuteAsync(Guid.NewGuid(), new(), source, ct);
     }
-
-    protected override ConfiguredValueTaskAwaitable ExecuteAsync(
-        Guid idempotentId,
-        HestiaPostResponse response,
-        HestiaPostRequest request,
-        CancellationToken ct
-    )
-    {
-        var gaiaValues = _dbValuesFactory.Create();
-        var fullDictionary = new Dictionary<Guid, FullToDo>();
-        var edits = new AutoDictionary<Guid, EditToDoEntity>();
-        using var database = Factory.Create();
-        var collection = database.GetToDoEntityCollection();
-        var options = _factoryOptions.Create();
-        Create(database, collection, options, idempotentId, response, request.Creates, gaiaValues);
-
-        var allItems = collection
-            .FindAll()
-            .Select(x => x.ToToDoEntity())
-            .ToDictionary(x => x.Id)
-            .ToFrozenDictionary();
-
-        CloneItems(database, options, idempotentId, allItems, request.Clones, gaiaValues);
-        Edit(request.Edits, edits);
-        ChangeOrder(database, collection, request.ChangeOrders, response.ValidationErrors, edits);
-        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits, gaiaValues);
-        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, edits);
-
-        database.EditEntities(
-            gaiaValues.UserId.ToString(),
-            idempotentId,
-            options.IsUseEvents,
-            edits.ToItemsArray()
-        );
-
-        Delete(database, options, idempotentId, request.DeleteIds, allItems, edits, gaiaValues, ct);
-        database.SaveChanges();
-
-        return TaskHelper.ConfiguredCompletedTask;
-    }
-
-    private readonly IFactory<DbValues> _dbValuesFactory;
-    private readonly ToDoParametersFillerService _toDoParametersFillerService;
-    private readonly IToDoValidator _toDoValidator;
-    private readonly IFactory<DbServiceOptions> _factoryOptions;
 
     private void CloneItems(
         IDatabase database,
