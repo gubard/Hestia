@@ -103,14 +103,7 @@ public sealed class ToDoLiteDbService
 
                 CloneItems(db, options, idempotentId, allItems, request.Clones, gaiaValues);
                 Edit(request.Edits, edits);
-
-                ChangeOrder(
-                    database,
-                    collection,
-                    request.ChangeOrders,
-                    response.ValidationErrors,
-                    edits
-                );
+                ChangeOrder(collection, request.ChangeOrders, response.ValidationErrors, edits);
 
                 SwitchComplete(
                     request.SwitchCompleteIds,
@@ -797,7 +790,6 @@ public sealed class ToDoLiteDbService
     }
 
     private void ChangeOrder(
-        IDatabase database,
         UltraLiteCollection<BsonDocument> collection,
         ChangeOrder[] changeOrders,
         List<ValidationError> errors,
