@@ -77,103 +77,151 @@ public sealed class ToDoLiteDbService
         var gaiaValues = _dbValuesFactory.Create();
         var fullDictionary = new Dictionary<Guid, FullToDo>();
         var edits = new AutoDictionary<Guid, EditToDoEntity>();
-        using var database = await Factory.CreateAsync(ct);
-        var collection = database.GetToDoEntityCollection();
-        var options = _factoryOptions.Create();
-        Create(database, collection, options, idempotentId, response, request.Creates, gaiaValues);
+        var database = await Factory.CreateAsync(ct);
 
-        var allItems = collection
-            .FindAll()
-            .Select(x => x.ToToDoEntity())
-            .ToDictionary(x => x.Id)
-            .ToFrozenDictionary();
+        await database.ExecuteAsync(
+            db =>
+            {
+                var collection = db.GetToDoEntityCollection();
+                var options = _factoryOptions.Create();
 
-        CloneItems(database, options, idempotentId, allItems, request.Clones, gaiaValues);
-        Edit(request.Edits, edits);
-        ChangeOrder(database, collection, request.ChangeOrders, response.ValidationErrors, edits);
-        SwitchComplete(request.SwitchCompleteIds, allItems, fullDictionary, edits, gaiaValues);
-        RandomizeChildrenOrderIndex(request.RandomizeChildrenOrderIndexIds, allItems, edits);
+                Create(
+                    db,
+                    collection,
+                    options,
+                    idempotentId,
+                    response,
+                    request.Creates,
+                    gaiaValues
+                );
 
-        database.EditEntities(
-            gaiaValues.UserId.ToString(),
-            idempotentId,
-            options.IsUseEvents,
-            edits.ToItemsArray()
+                var allItems = collection
+                    .FindAll()
+                    .Select(x => x.ToToDoEntity())
+                    .ToDictionary(x => x.Id)
+                    .ToFrozenDictionary();
+
+                CloneItems(db, options, idempotentId, allItems, request.Clones, gaiaValues);
+                Edit(request.Edits, edits);
+
+                ChangeOrder(
+                    database,
+                    collection,
+                    request.ChangeOrders,
+                    response.ValidationErrors,
+                    edits
+                );
+
+                SwitchComplete(
+                    request.SwitchCompleteIds,
+                    allItems,
+                    fullDictionary,
+                    edits,
+                    gaiaValues
+                );
+
+                RandomizeChildrenOrderIndex(
+                    request.RandomizeChildrenOrderIndexIds,
+                    allItems,
+                    edits
+                );
+
+                db.EditEntities(
+                    gaiaValues.UserId.ToString(),
+                    idempotentId,
+                    options.IsUseEvents,
+                    edits.ToItemsArray()
+                );
+
+                Delete(
+                    db,
+                    options,
+                    idempotentId,
+                    request.DeleteIds,
+                    allItems,
+                    edits,
+                    gaiaValues,
+                    ct
+                );
+            },
+            ct
         );
-
-        Delete(database, options, idempotentId, request.DeleteIds, allItems, edits, gaiaValues, ct);
-        await database.SaveChangesAsync(ct);
     }
 
     private async ValueTask UpdateCore(HestiaGetResponse source, CancellationToken ct)
     {
-        using var database = await Factory.CreateAsync(ct);
-        var collection = database.GetToDoEntityCollection();
-        var updateValues = GetToDoEntities(source);
-        var entities = updateValues.Select(x => x.item).ToArray();
+        var database = await Factory.CreateAsync(ct);
 
-        if (entities.Length == 0)
-        {
-            return;
-        }
-
-        var exists = entities
-            .Where(x => collection.Exists(Query.EQ("_id", x.Id)))
-            .Select(x => x.Id)
-            .ToArray();
-
-        var updates = updateValues
-            .Where(x => exists.Contains(x.item.Id))
-            .Select(x =>
+        await database.ExecuteAsync(
+            db =>
             {
-                var bsonDocument = x.item.ToBsonDocument();
+                var collection = db.GetToDoEntityCollection();
+                var updateValues = GetToDoEntities(source);
+                var entities = updateValues.Select(x => x.item).ToArray();
 
-                if (!x.isUpdateIsComplited)
+                if (entities.Length == 0)
                 {
-                    var d = collection.FindById(x.item.Id);
-
-                    bsonDocument[nameof(ToDoEntity.IsCompleted)] = d[
-                        nameof(ToDoEntity.IsCompleted)
-                    ];
+                    return;
                 }
 
-                return bsonDocument;
-            })
-            .ToArray();
+                var exists = entities
+                    .Where(x => collection.Exists(Query.EQ("_id", x.Id)))
+                    .Select(x => x.Id)
+                    .ToArray();
 
-        var inserts = entities
-            .Where(x => !exists.Contains(x.Id))
-            .Select(x => x.ToBsonDocument())
-            .ToArray();
+                var updates = updateValues
+                    .Where(x => exists.Contains(x.item.Id))
+                    .Select(x =>
+                    {
+                        var bsonDocument = x.item.ToBsonDocument();
 
-        if (inserts.Length != 0)
-        {
-            collection.Insert(inserts);
-        }
+                        if (!x.isUpdateIsComplited)
+                        {
+                            var d = collection.FindById(x.item.Id);
 
-        if (updates.Length != 0)
-        {
-            collection.Update(updates);
-        }
+                            bsonDocument[nameof(ToDoEntity.IsCompleted)] = d[
+                                nameof(ToDoEntity.IsCompleted)
+                            ];
+                        }
 
-        if (source.Selectors is not null)
-        {
-            var ids = source
-                .Selectors.SelectMany(x => GetToDoEntities(x).Select(y => y.Id))
-                .ToArray();
+                        return bsonDocument;
+                    })
+                    .ToArray();
 
-            var deleteIds = collection
-                .Find(Query.Not(Query.In("_id", ids.Select(x => new BsonValue(x)))))
-                .Select(x => x["_id"])
-                .ToArray();
+                var inserts = entities
+                    .Where(x => !exists.Contains(x.Id))
+                    .Select(x => x.ToBsonDocument())
+                    .ToArray();
 
-            if (deleteIds.Length != 0)
-            {
-                collection.Delete(Query.In("_id", deleteIds));
-            }
-        }
+                if (inserts.Length != 0)
+                {
+                    collection.Insert(inserts);
+                }
 
-        await database.SaveChangesAsync(ct);
+                if (updates.Length != 0)
+                {
+                    collection.Update(updates);
+                }
+
+                if (source.Selectors is not null)
+                {
+                    var ids = source
+                        .Selectors.SelectMany(x => GetToDoEntities(x).Select(y => y.Id))
+                        .ToArray();
+
+                    var deleteIds = collection
+                        .Find(Query.Not(Query.In("_id", ids.Select(x => new BsonValue(x)))))
+                        .Select(x => x["_id"])
+                        .ToArray();
+
+                    if (deleteIds.Length != 0)
+                    {
+                        collection.Delete(Query.In("_id", deleteIds));
+                    }
+                }
+            },
+            ct
+        );
     }
 
     private async ValueTask<HestiaGetResponse> GetCore(
@@ -182,12 +230,19 @@ public sealed class ToDoLiteDbService
     )
     {
         var gaiaValues = _dbValuesFactory.Create();
-        using var database = await Factory.CreateAsync(ct);
-        var collection = database.GetToDoEntityCollection();
-        var items = collection.FindAll().Select(x => x.ToToDoEntity()).ToArray();
-        var response = CreateGetResponse(request, items, gaiaValues);
+        var database = await Factory.CreateAsync(ct);
 
-        return response;
+        return await database.ExecuteAsync(
+            db =>
+            {
+                var collection = db.GetToDoEntityCollection();
+                var items = collection.FindAll().Select(x => x.ToToDoEntity()).ToArray();
+                var response = CreateGetResponse(request, items, gaiaValues);
+
+                return response;
+            },
+            ct
+        );
     }
 
     private async ValueTask UpdateCore(HestiaPostRequest source, CancellationToken ct)
@@ -196,7 +251,7 @@ public sealed class ToDoLiteDbService
     }
 
     private void CloneItems(
-        IDatabase database,
+        UltraLiteDatabase database,
         DbServiceOptions options,
         Guid idempotentId,
         FrozenDictionary<Guid, ToDoEntity> allEntities,
@@ -682,7 +737,7 @@ public sealed class ToDoLiteDbService
     }
 
     private void Delete(
-        IDatabase database,
+        UltraLiteDatabase database,
         DbServiceOptions options,
         Guid idempotentId,
         Guid[] ids,
@@ -842,7 +897,7 @@ public sealed class ToDoLiteDbService
     }
 
     private void Create(
-        IDatabase database,
+        UltraLiteDatabase database,
         UltraLiteCollection<BsonDocument> collection,
         DbServiceOptions options,
         Guid idempotentId,
