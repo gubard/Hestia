@@ -28,25 +28,21 @@ foreach (var (key, value) in IdempotenceMigration.Migrations)
     migration.Add(key, value);
 }
 
-var builder = WebApplication
+await WebApplication
     .CreateBuilder(args)
-    .AddServicesZeus<
+    .CreateAndRunZeusApp<
         IToDoService,
         ToDoLiteDbService,
         HestiaGetRequest,
         HestiaPostRequest,
         HestiaGetResponse,
         HestiaPostResponse
-    >(migration.ToFrozenDictionary(), HestiaJsonContext.Default.Options, "Hestia");
-
-builder.Services.AddTransient<ToDoParametersFillerService>();
-builder.Services.AddTransient<IToDoValidator, ToDoValidator>();
-var app = builder.Build();
-
-await app.RunZeusApp<
-    IToDoService,
-    HestiaGetRequest,
-    HestiaPostRequest,
-    HestiaGetResponse,
-    HestiaPostResponse
->();
+    >(
+        migration.ToFrozenDictionary(),
+        "Hestia",
+        builder =>
+            builder
+                .Services.AddSingleton(HestiaJsonContext.Default.Options)
+                .AddTransient<ToDoParametersFillerService>()
+                .AddTransient<IToDoValidator, ToDoValidator>()
+    );
