@@ -4,11 +4,12 @@ using Hestia.Contract.Models;
 using Hestia.Contract.Services;
 using Hestia.Db.Services;
 using Nestor.Db.Helpers;
+using Nestor.Db.LiteDb.Helpers;
 using Zeus.Helpers;
 
-InsertHelper.AddDefaultInsert(
+DefaultBsonDocument.AddDefaultBsonDocument(
     nameof(ToDoEntity),
-    i => new ToDoEntity[] { new() { Id = i } }.CreateInsertQuery()
+    i => new ToDoEntity { Id = i }.ToBsonDocument()
 );
 
 var migration = new Dictionary<int, string>();
