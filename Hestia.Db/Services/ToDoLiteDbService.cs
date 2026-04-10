@@ -1332,23 +1332,11 @@ public sealed class ToDoLiteDbService
             .Concat(
                 source.Leafs.SelectMany(x => x.Value).Select(x => (true, x.Item.ToToDoEntity()))
             )
-            .Concat(
-                source.Roots?.Select(x => (true, x.Item.ToToDoEntity()))
-                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
-            )
-            .Concat(
-                source.Favorites?.Select(x => (true, x.Item.ToToDoEntity()))
-                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
-            )
+            .Concat(source.Roots?.Select(x => (true, x.Item.ToToDoEntity())) ?? [])
+            .Concat(source.Favorites?.Select(x => (true, x.Item.ToToDoEntity())) ?? [])
             .Concat(source.Parents.SelectMany(x => x.Value).Select(x => (false, x.ToToDoEntity())))
-            .Concat(
-                source.Selectors?.SelectMany(GetToDoEntities).Select(x => (false, x))
-                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
-            )
-            .Concat(
-                source.Bookmarks?.Select(x => (false, x.ToToDoEntity()))
-                    ?? Enumerable.Empty<(bool, ToDoEntity)>()
-            )
+            .Concat(source.Selectors?.SelectMany(GetToDoEntities).Select(x => (false, x)) ?? [])
+            .Concat(source.Bookmarks?.Select(x => (false, x.ToToDoEntity())) ?? [])
             .GroupBy(x => x.Item2.Id)
             .Select(x => x.Any(y => y.Item1) ? x.First(y => y.Item1) : x.First())
             .ToArray();
