@@ -31,13 +31,15 @@ public static class Mapper
                 TypeOfPeriodicity = edit.TypeOfPeriodicity,
 
                 IsEditAnnuallyDays = edit.IsEditAnnuallyDays,
-                AnnuallyDays = edit.AnnuallyDays.Select(x => $"{x.Month}.{x.Day}").JoinString(";"),
+                AnnuallyDays = edit
+                    .AnnuallyDays.SelectAsSpan(x => $"{x.Month}.{x.Day}")
+                    .JoinString(";"),
 
                 IsEditMonthlyDays = edit.IsEditMonthlyDays,
-                MonthlyDays = edit.MonthlyDays.Select(x => $"{x}").JoinString(";"),
+                MonthlyDays = edit.MonthlyDays.SelectAsSpan(x => $"{x}").JoinString(";"),
 
                 IsEditWeeklyDays = edit.IsEditWeeklyDays,
-                WeeklyDays = edit.WeeklyDays.Select(x => $"{x}").JoinString(";"),
+                WeeklyDays = edit.WeeklyDays.SelectAsSpan(x => $"{x}").JoinString(";"),
 
                 IsEditDaysOffset = edit.IsEditDaysOffset,
                 DaysOffset = edit.DaysOffset,
@@ -152,7 +154,7 @@ public static class Mapper
             return [1];
         }
 
-        return entity.MonthlyDays.Split(";").Select(int.Parse).ToArray();
+        return entity.MonthlyDays.Split(";").SelectAsSpan(int.Parse).ToArray();
     }
 
     public static DayOfWeek[] GetDaysOfWeek(this ToDoEntity entity)
@@ -162,7 +164,7 @@ public static class Mapper
             return [DayOfWeek.Monday];
         }
 
-        return entity.WeeklyDays.Split(";").Select(Enum.Parse<DayOfWeek>).ToArray();
+        return entity.WeeklyDays.Split(";").SelectAsSpan(Enum.Parse<DayOfWeek>).ToArray();
     }
 
     public static ToDoEntity ToToDoEntity(this ShortToDo entity)
@@ -197,15 +199,14 @@ public static class Mapper
             NormalizeName = entity.Name.ToUpperInvariant(),
         };
     }
-    
+
     public static ToDoEntity ToToDoEntity(this FullToDo entity)
     {
-
         var item = entity.Item.ToToDoEntity();
 
         switch (item.Type)
-        
-        {   case ToDoType.Circle:
+        {
+            case ToDoType.Circle:
             case ToDoType.FixedDate:
             case ToDoType.Periodicity:
             case ToDoType.PeriodicityOffset:

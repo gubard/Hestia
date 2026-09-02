@@ -20,7 +20,7 @@ public sealed class ToDoLiteDbService
         IToDoDbCache
 {
     public ToDoLiteDbService(
-        IDatabaseFactory factory,
+        IUltraLiteDatabaseFactory factory,
         IFactory<DbValues> dbValuesFactory,
         ToDoParametersFillerService toDoParametersFillerService,
         IToDoValidator toDoValidator,
@@ -136,6 +136,8 @@ public sealed class ToDoLiteDbService
                     gaiaValues,
                     ct
                 );
+
+                return TaskHelper.ConfiguredCompletedTask;
             },
             ct
         );
@@ -150,11 +152,11 @@ public sealed class ToDoLiteDbService
             {
                 var collection = db.GetToDoEntityCollection();
                 var updateValues = GetToDoEntities(source);
-                var entities = updateValues.Select(x => x.item).ToArray();
+                var entities = updateValues.SelectAsSpan(x => x.item).ToArray();
 
                 if (entities.Length == 0)
                 {
-                    return;
+                    return TaskHelper.ConfiguredCompletedTask;
                 }
 
                 var exists = entities
@@ -203,7 +205,11 @@ public sealed class ToDoLiteDbService
                         .ToArray();
 
                     var deleteIds = collection
-                        .Find(Query.Not(Query.In("_id", ids.Select(x => new BsonValue(x)))))
+                        .Find(
+                            Query.Not(
+                                Query.In("_id", ids.SelectAsSpan(x => new BsonValue(x)).ToArray())
+                            )
+                        )
                         .Select(x => x["_id"])
                         .ToArray();
 
@@ -212,6 +218,8 @@ public sealed class ToDoLiteDbService
                         collection.Delete(Query.In("_id", deleteIds));
                     }
                 }
+
+                return TaskHelper.ConfiguredCompletedTask;
             },
             ct
         );
@@ -232,7 +240,7 @@ public sealed class ToDoLiteDbService
                 var items = collection.FindAll().Select(x => x.ToToDoEntity()).ToArray();
                 var response = CreateGetResponse(request, items, gaiaValues);
 
-                return response;
+                return TaskHelper.FromResult(response);
             },
             ct
         );
@@ -253,14 +261,18 @@ public sealed class ToDoLiteDbService
     )
     {
         var items = cloneItems
-            .Select(x =>
-                x.CloneIds.Select(y => Clone(allEntities, allEntities[y], x.ParentId))
-                    .SelectMany(y => y)
+            .SelectAsMemory(x =>
+                x.CloneIds.SelectAsMemory(y => Clone(allEntities, allEntities[y], x.ParentId))
+                    .SelectMany()
             )
-            .SelectMany(x => x)
-            .ToArray();
+            .SelectMany();
 
-        database.AddEntities(dbValues.UserId.ToString(), idempotentId, options.IsUseEvents, items);
+        database.AddEntities(
+            dbValues.UserId.ToString(),
+            idempotentId,
+            options.IsUseEvents,
+            items.ToArray()
+        );
     }
 
     private IEnumerable<ToDoEntity> Clone(
@@ -804,28 +816,29 @@ public sealed class ToDoLiteDbService
         var allInsertIds = changeOrders.SelectMany(x => x.InsertIds).Distinct().ToArray();
 
         var insertItems = collection
-            .Find(Query.In("_id", allInsertIds.Select(x => new BsonValue(x))))
+            .Find(Query.In("_id", allInsertIds.SelectAsSpan(x => new BsonValue(x)).ToArray()))
             .Select(x => x.ToToDoEntity())
             .ToArray();
 
         var insertItemsDictionary = insertItems.ToDictionary(x => x.Id).ToFrozenDictionary();
-        var startIds = changeOrders.Select(x => x.StartId).Distinct().ToArray();
+        var startIds = changeOrders.SelectAsMemory(x => x.StartId).Distinct().ToArray();
 
         var startItems = collection
-            .Find(Query.In("_id", startIds.Select(x => new BsonValue(x))))
+            .Find(Query.In("_id", startIds.SelectAsSpan(x => new BsonValue(x)).ToArray()))
             .Select(x => x.ToToDoEntity())
             .ToArray();
 
         var startItemsDictionary = startItems.ToDictionary(x => x.Id).ToFrozenDictionary();
 
-        var parentItems = startItems
-            .Select(x => x.ParentId)
-            .WhereNotNullStruct()
-            .Distinct()
-            .ToArray();
+        var parentItems = startItems.SelectAsMemory(x => x.ParentId).Distinct().ToArray();
 
         var allSiblings = collection
-            .Find(Query.In(nameof(ToDoEntity.ParentId), parentItems.Select(x => new BsonValue(x))))
+            .Find(
+                Query.In(
+                    nameof(ToDoEntity.ParentId),
+                    parentItems.SelectAsSpan(x => new BsonValue(x)).ToArray()
+                )
+            )
             .Select(x => x.ToToDoEntity())
             .ToArray();
 
@@ -972,7 +985,7 @@ public sealed class ToDoLiteDbService
         if (request.IsGetSelectors)
         {
             response.Selectors = roots
-                .Select(x => new ToDoSelector
+                .SelectAsSpan(x => new ToDoSelector
                 {
                     Item = x.ToToDoShort(),
                     Children = GetToDoSelectorItems(items, x.Id).ToArray(),
@@ -1005,6 +1018,7 @@ public sealed class ToDoLiteDbService
         if (request.IsCurrentActive)
         {
             response.CurrentActive.HasResponse = true;
+
             var rootsFullItems = roots
                 .Select(i => GetFullItem(dictionary, fullDictionary, i, dbValues.Offset))
                 .OrderBy(x => x.Item.OrderIndex)
@@ -1040,7 +1054,9 @@ public sealed class ToDoLiteDbService
             response.Favorites = dictionary
                 .Where(x => x.Value.IsFavorite)
                 .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x.Value, dbValues.Offset))
+                .SelectAsSpan(x =>
+                    GetFullItem(dictionary, fullDictionary, x.Value, dbValues.Offset)
+                )
                 .ToArray();
         }
 
@@ -1061,7 +1077,7 @@ public sealed class ToDoLiteDbService
                     dictionary
                         .Values.Where(x => x.ParentId == id)
                         .ToArray()
-                        .Select(item =>
+                        .SelectAsSpan(item =>
                             GetFullItem(dictionary, fullDictionary, item, dbValues.Offset)
                         )
                         .ToArray()
@@ -1103,7 +1119,7 @@ public sealed class ToDoLiteDbService
                     request.Search.Types.Length == 0 || request.Search.Types.Contains(x.Type)
                 )
                 .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
+                .SelectAsSpan(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
                 .ToArray();
         }
 
@@ -1135,14 +1151,14 @@ public sealed class ToDoLiteDbService
                         )
                 )
                 .ToArray()
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
+                .SelectAsSpan(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
                 .ToArray();
         }
 
         if (request.IsRoots)
         {
             response.Roots = roots
-                .Select(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
+                .SelectAsSpan(x => GetFullItem(dictionary, fullDictionary, x, dbValues.Offset))
                 .ToArray();
         }
 
@@ -1159,7 +1175,7 @@ public sealed class ToDoLiteDbService
         if (request.Items.Length != 0)
         {
             response.Items = request
-                .Items.Select(x =>
+                .Items.SelectAsSpan(x =>
                     GetFullItem(dictionary, fullDictionary, dictionary[x], dbValues.Offset)
                 )
                 .ToArray();
@@ -1204,7 +1220,7 @@ public sealed class ToDoLiteDbService
         {
             var parameters = GetFullItem(allItems, fullToDoItems, item, offset);
 
-            if (!options.Statuses.Select(x => x).Contains(parameters.Status))
+            if (!options.Statuses.SelectAsSpan(x => x).Contains(parameters.Status))
             {
                 continue;
             }
